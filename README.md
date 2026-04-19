@@ -1,6 +1,6 @@
 # App Launcher
 
-You need node.js for this app 
+You need node.js for this app - This is only for the souce code if you intend to edit it
 
 https://nodejs.org/en/download
 
