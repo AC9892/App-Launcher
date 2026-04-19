@@ -76,7 +76,7 @@ test("home launcher supports command entries", () => {
             name: "ANTC CLI",
             kind: "command",
             command: "node",
-            args: ["src\\cli.js", "info", "C:\\Users\\bryce\\Downloads\\file.atl"],
+            args: ["src\\cli.js", "info", "C:\\Users\\path\\Downloads\\file.atl"],
             cwd: "..\\..\\App",
             keepOpen: true,
             consoleWindow: "minimized"
@@ -95,7 +95,7 @@ test("home launcher supports command entries", () => {
   assert.equal(launcher.errors.length, 0);
   assert.equal(command.kind, "command");
   assert.equal(command.command, "node");
-  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Users\\bryce\\Downloads\\file.atl"]);
+  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Users\\path\\Downloads\\file.atl"]);
   assert.equal(command.cwd, path.resolve(configDir, "..\\..\\App"));
   assert.equal(command.keepOpen, true);
   assert.equal(command.consoleWindow, "minimized");
