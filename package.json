@@ -1,0 +1,17 @@
+{
+  "name": "antc_home_launcher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone launcher app for external tools and apps",
+  "main": "./main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node ./test/launcher.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "^41.1.1"
+  }
+}

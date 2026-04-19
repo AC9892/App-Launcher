@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Home Launcher</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="app-kicker">Home</p>
+          <h1>App Launcher</h1>
+          <p class="app-subtitle">Load apps and shortcuts from `/Home/Confg`.</p>
+        </div>
+        <div class="app-badges">
+          <span>HOME</span>
+          <span>v1</span>
+        </div>
+      </header>
+
+      <section id="launcher-view" class="panel app-view">
+        <div class="panel-header">
+          <div>
+            <h2>App Launcher</h2>
+            <p id="config-path" class="config-path"></p>
+          </div>
+          <div class="actions">
+            <button id="toggle-add-app" class="primary" type="button">Add App</button>
+            <button id="open-config" class="secondary" type="button">Open Config</button>
+            <button id="reload-launcher" class="secondary" type="button">Reload Apps</button>
+            <button id="toggle-customize" class="secondary" type="button">Customize</button>
+            <button id="toggle-settings" class="secondary" type="button">Settings</button>
+          </div>
+        </div>
+
+        <div id="settings-panel" class="settings-panel hidden">
+          <div>
+            <h3>Settings</h3>
+            <p>Change the whole app orientation and the launcher card flow. This saves on this machine.</p>
+          </div>
+          <label class="field compact-field">
+            <span>App orientation</span>
+            <select id="app-orientation">
+              <option value="horizontal">Horizontal app</option>
+              <option value="vertical">Vertical app</option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span>Launcher card layout (horizontal app)</span>
+            <select id="card-layout">
+              <option value="horizontal">Horizontal rows</option>
+              <option value="vertical">Vertical grid</option>
+            </select>
+          </label>
+          <div class="settings-actions">
+            <button id="restart-app" class="secondary" type="button">Restart App</button>
+          </div>
+        </div>
+
+        <form id="add-app-panel" class="add-app-panel hidden">
+          <div class="add-app-header">
+            <div>
+              <h3 id="add-app-title">Add App</h3>
+              <p id="add-app-help">Writes a new launcher entry to `/Home/Confg/apps.json`. Manual JSON configs still work.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>Name</span>
+              <input id="app-name" type="text" required placeholder="ANTC Studio" />
+            </label>
+
+            <label class="field">
+              <span>Kind</span>
+              <select id="app-kind">
+                <option value="executable">Executable</option>
+                <option value="file">File</option>
+                <option value="folder">Folder</option>
+                <option value="url">URL</option>
+                <option value="command">Command</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Group</span>
+              <input id="app-group" type="text" placeholder="Apps" />
+            </label>
+
+            <label class="field">
+              <span>Fallback icon text</span>
+              <input id="app-icon" type="text" maxlength="3" placeholder="AP" />
+            </label>
+
+            <div class="target-row wide-field">
+              <label class="field">
+                <span>Icon image (optional)</span>
+                <input id="app-icon-path" type="text" placeholder="C:\Users\bryce\Pictures\app-icon.png" />
+              </label>
+              <button id="browse-icon" class="secondary" type="button">Browse Icon</button>
+            </div>
+
+            <label class="field wide-field">
+              <span>Description</span>
+              <input id="app-description" type="text" placeholder="Short launcher description" />
+            </label>
+
+            <div class="target-row wide-field">
+              <label class="field">
+                <span id="target-label">Target path</span>
+                <input id="app-target" type="text" required placeholder="C:\Windows\System32\notepad.exe" />
+              </label>
+              <button id="browse-target" class="secondary" type="button">Browse</button>
+            </div>
+
+            <div id="command-fields" class="command-fields wide-field hidden">
+              <label class="field">
+                <span>Args (one per line)</span>
+                <textarea id="app-args" rows="3" placeholder="node_modules\electron\cli.js&#10;."></textarea>
+              </label>
+
+              <div class="target-row">
+                <label class="field">
+                  <span>Working directory</span>
+                  <input id="app-cwd" type="text" placeholder="C:\Users\bryce\Documents\WebBased\ANTC - Format\App" />
+                </label>
+                <button id="browse-cwd" class="secondary" type="button">Browse</button>
+              </div>
+
+              <label class="field">
+                <span>Console window</span>
+                <select id="app-console-window">
+                  <option value="normal">Normal</option>
+                  <option value="minimized">Minimized</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </label>
+
+              <label class="checkbox-field">
+                <input id="app-keep-open" type="checkbox" />
+                <span>Keep console open after command finishes</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button id="save-app" class="primary" type="submit">Save App</button>
+            <button id="clear-add-app" class="secondary" type="button">Clear</button>
+            <button id="cancel-edit-app" class="secondary hidden" type="button">Cancel Edit</button>
+          </div>
+        </form>
+
+        <div class="note-card">
+          Add `.json` files in `/Home/Confg`. Use Settings to switch the whole launcher between horizontal and vertical.
+        </div>
+
+        <div id="launcher-groups" class="launcher-groups"></div>
+
+        <div id="launcher-empty" class="empty-state hidden">
+          <strong>No launcher apps configured yet.</strong>
+          <p>Open `/Home/Confg`, add a JSON file, then reload the launcher.</p>
+        </div>
+
+        <div id="launcher-status" class="result-card hidden"></div>
+      </section>
+
+      <section id="customize-view" class="panel app-view customize-view hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Customize UI</h2>
+            <p class="config-path">Theme colors, effects, and optional gradients for App Launcher.</p>
+          </div>
+          <div class="actions">
+            <button id="back-to-launcher" class="primary" type="button">Back to Apps</button>
+          </div>
+        </div>
+
+        <div id="customize-panel" class="customize-panel">
+          <div>
+            <h3>Theme Controls</h3>
+            <p>Change launcher colors and optional effects. Gradients stay off unless enabled.</p>
+          </div>
+
+          <div class="customize-grid">
+            <label class="field">
+              <span>Theme preset</span>
+              <select id="theme-preset">
+                <option value="custom">Custom</option>
+                <option value="default">Default Dark</option>
+                <option value="ocean">Deep Ocean</option>
+                <option value="ember">Ember</option>
+                <option value="forest">Forest</option>
+                <option value="mono">Mono Steel</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Effect</span>
+              <select id="theme-effect">
+                <option value="none">None</option>
+                <option value="glow">Accent Glow</option>
+                <option value="glass">Glass Panels</option>
+                <option value="grid">Subtle Grid</option>
+                <option value="scanlines">Scanlines</option>
+              </select>
+            </label>
+
+            <label class="field color-field">
+              <span>Background</span>
+              <input id="theme-background" type="color" value="#07090b" />
+            </label>
+
+            <label class="field color-field">
+              <span>Panel</span>
+              <input id="theme-surface" type="color" value="#0f1317" />
+            </label>
+
+            <label class="field color-field">
+              <span>Card</span>
+              <input id="theme-card" type="color" value="#1a2127" />
+            </label>
+
+            <label class="field color-field">
+              <span>Text</span>
+              <input id="theme-text" type="color" value="#ecf1f6" />
+            </label>
+
+            <label class="field color-field">
+              <span>Accent</span>
+              <input id="theme-accent" type="color" value="#7aa2ff" />
+            </label>
+
+            <label class="checkbox-field theme-toggle">
+              <input id="theme-gradient-enabled" type="checkbox" />
+              <span>Enable gradient background</span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button id="reset-theme" class="secondary danger-button" type="button">Reset Colors</button>
+          </div>
+        </div>
+      </section>
+
+      <footer id="status-bar" class="status-bar idle">Ready.</footer>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
