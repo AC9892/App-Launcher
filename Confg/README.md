@@ -15,7 +15,7 @@ Each file can be either:
       "name": "Notepad",
       "kind": "executable",
       "target": "C:\\Windows\\System32\\notepad.exe",
-      "iconPath": "C:\\Users\\bryce\\Pictures\\notepad.png",
+      "iconPath": "C:\\Path\\To\\notepad.png",
       "description": "Open Notepad"
     },
     {
