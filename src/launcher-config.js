@@ -46,13 +46,13 @@ Each file can be either:
       "name": "Notepad",
       "kind": "executable",
       "target": "C:\\\\Windows\\\\System32\\\\notepad.exe",
-      "iconPath": "C:\\\\Users\\\\bryce\\\\Pictures\\\\notepad.png",
+      "iconPath": "C:\\\\Users\\\\path\\\\Pictures\\\\notepad.png",
       "description": "Open Notepad"
     },
     {
       "name": "Downloads",
       "kind": "folder",
-      "target": "C:\\\\Users\\\\bryce\\\\Downloads",
+      "target": "C:\\\\Users\\\\path\\\\Downloads",
       "description": "Open Downloads"
     },
     {
