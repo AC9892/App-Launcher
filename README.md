@@ -4,6 +4,10 @@
 ## Run
 
 ```bash
+cd "Downloads\AppLauncher-clean-win32-x64"
+```
+Or what ever the path is *right click & copy as path or Ctrl + Shift + C
+```bash
 npm install
 npm start
 ```
