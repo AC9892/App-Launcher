@@ -1,6 +1,5 @@
-# Home Launcher
+# App Launcher
 
-This is a standalone Electron app launcher. It is separate from the ANTC app under `/App`.
 
 ## Run
 
@@ -13,10 +12,10 @@ npm start
 
 Launcher entries are loaded from:
 
-- `/Home/Confg/apps.json`
+- `/AppLauncher-clean-win32-x64/Confg/apps.json`
 - any other `.json` files inside `/Home/Confg`
 
-See `/Home/Confg/README.md` for the file format.
+See `/AppLauncher-clean-win32-x64/Confg/README.md` for the file format.
 
 Supported launcher kinds:
 
