@@ -337,8 +337,8 @@ function updateAddAppForm() {
   };
   const placeholders = {
     executable: "C:\\Windows\\System32\\notepad.exe",
-    file: "C:\\Users\\bryce\\Downloads\\file.pdf",
-    folder: "C:\\Users\\bryce\\Downloads",
+    file: "C:\\Path\\To\\file.pdf",
+    folder: "C:\\Path\\To\\Folder",
     url: "https://example.com",
     command: "C:\\Program Files\\nodejs\\node.exe"
   };
