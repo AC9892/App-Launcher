@@ -1,8 +1,11 @@
 # App Launcher
 
+You need node.js for this app 
+
+https://nodejs.org/en/download
 
 ## Run
-
+ This is for runing after downloading the souce code
 ```bash
 cd "Downloads\AppLauncher-clean-win32-x64"
 ```
@@ -28,3 +31,6 @@ Supported launcher kinds:
 - `folder`
 - `url`
 - `command`
+
+
+Codex assistance *more like 100% - sad yeah ik
