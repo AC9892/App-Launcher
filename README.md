@@ -15,7 +15,7 @@ npm start
 npm run build:portable
 ```
 
-The portable Windows folder is created at `dist/HomeLauncher-win32-x64`.
+The portable Windows folder is created at `dist/AppLauncher-win32-x64`.
 
 ## Config
 
