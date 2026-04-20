@@ -1,28 +1,31 @@
-# App Launcher
+# Home Launcher
 
-You need node.js for this app - This is only for the souce code if you intend to edit it
-
-https://nodejs.org/en/download
+This is a standalone Electron app launcher. It is separate from the ANTC app under `/App`.
 
 ## Run
- This is for runing after downloading the souce code
-```bash
-cd "Downloads\AppLauncher-clean-win32-x64"
-```
-Or what ever the path is *right click & copy as path or Ctrl + Shift + C
+
 ```bash
 npm install
 npm start
 ```
 
+## Portable Build
+
+```bash
+npm run build:portable
+```
+
+The portable Windows folder is created at `dist/HomeLauncher-win32-x64`.
+
 ## Config
 
 Launcher entries are loaded from:
 
-- `/AppLauncher-clean-win32-x64/Confg/apps.json`
+- `/Home/Confg/apps.json`
 - any other `.json` files inside `/Home/Confg`
 
-See `/AppLauncher-clean-win32-x64/Confg/README.md` for the file format.
+See `/Home/Confg/README.md` for the file format.
+Use `/Home/Confg/apps.sample.json` as a clean example config.
 
 Supported launcher kinds:
 
@@ -32,5 +35,16 @@ Supported launcher kinds:
 - `url`
 - `command`
 
+Optional launcher fields include `description`, `group`, `tags`, `icon`, `iconPath`, and `accent`.
+Executable and command entries can also set `runAsAdmin`.
 
-Codex assistance *more like 100% - sad yeah ik
+## Features
+
+- Add and edit launcher entries from the UI.
+- Import, export, and scan folders into `apps.json`.
+- Drag apps from `apps.json` to reorder them.
+- Pin apps and track recent / most-used launches locally.
+- Filter apps by search text and tags.
+- Customize colors, effects, layout, and imported fonts.
+- Toggle launch-on-startup and minimize-to-tray in Settings.
+- Launch executable and command entries as administrator when enabled.

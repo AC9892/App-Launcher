@@ -56,24 +56,58 @@ const THEME_PRESETS = {
 const state = {
   entries: [],
   errors: [],
+  warnings: [],
   configDir: "",
+  searchQuery: "",
+  tagFilter: "",
   editingEntry: null,
+  favorites: new Set(),
+  launchStats: {},
+  draggedEntryId: "",
   theme: { ...DEFAULT_THEME },
+  customTheme: { ...DEFAULT_THEME, preset: "custom" },
+  customEffect: {
+    enabled: false,
+    css: "",
+    name: ""
+  },
+  customCode: {
+    htmlEnabled: false,
+    html: "",
+    htmlName: "",
+    jsEnabled: false,
+    js: "",
+    jsName: ""
+  },
   settings: {
     appOrientation: "vertical",
-    cardLayout: "horizontal"
+    cardLayout: "horizontal",
+    launchOnStartup: false,
+    minimizeToTray: false,
+    advancedCustomization: false,
+    customFont: null
   }
 };
 
 const elements = {
   launcherView: document.querySelector("#launcher-view"),
   customizeView: document.querySelector("#customize-view"),
+  advancedEditorsView: document.querySelector("#advanced-editors-view"),
   configPath: document.querySelector("#config-path"),
   openConfig: document.querySelector("#open-config"),
+  exportConfig: document.querySelector("#export-config"),
+  importConfig: document.querySelector("#import-config"),
+  scanFolder: document.querySelector("#scan-folder"),
   reloadLauncher: document.querySelector("#reload-launcher"),
   toggleAddApp: document.querySelector("#toggle-add-app"),
   toggleCustomize: document.querySelector("#toggle-customize"),
+  toggleAdvancedEditors: document.querySelector("#toggle-advanced-editors"),
   backToLauncher: document.querySelector("#back-to-launcher"),
+  advancedBackToLauncher: document.querySelector("#advanced-back-to-launcher"),
+  advancedBackToCustomize: document.querySelector("#advanced-back-to-customize"),
+  popoutAllEditors: document.querySelector("#popout-all-editors"),
+  advancedLocked: document.querySelector("#advanced-locked"),
+  advancedEditorsGrid: document.querySelector("#advanced-editors-grid"),
   customizePanel: document.querySelector("#customize-panel"),
   themePreset: document.querySelector("#theme-preset"),
   themeEffect: document.querySelector("#theme-effect"),
@@ -84,12 +118,37 @@ const elements = {
   themeAccent: document.querySelector("#theme-accent"),
   themeGradientEnabled: document.querySelector("#theme-gradient-enabled"),
   resetTheme: document.querySelector("#reset-theme"),
+  customEffectEnabled: document.querySelector("#custom-effect-enabled"),
+  customEffectLines: document.querySelector("#custom-effect-lines"),
+  customEffectHighlight: document.querySelector("#custom-effect-highlight"),
+  customEffectCss: document.querySelector("#custom-effect-css"),
+  importEffect: document.querySelector("#import-effect"),
+  popoutEffect: document.querySelector("#popout-effect"),
+  applyCustomEffect: document.querySelector("#apply-custom-effect"),
+  clearCustomEffect: document.querySelector("#clear-custom-effect"),
+  customCodePanel: document.querySelector("#custom-code-panel"),
+  customHtmlEnabled: document.querySelector("#custom-html-enabled"),
+  customHtmlLines: document.querySelector("#custom-html-lines"),
+  customHtmlHighlight: document.querySelector("#custom-html-highlight"),
+  customHtmlCode: document.querySelector("#custom-html-code"),
+  importHtml: document.querySelector("#import-html"),
+  popoutHtml: document.querySelector("#popout-html"),
+  customJsEnabled: document.querySelector("#custom-js-enabled"),
+  customJsLines: document.querySelector("#custom-js-lines"),
+  customJsHighlight: document.querySelector("#custom-js-highlight"),
+  customJsCode: document.querySelector("#custom-js-code"),
+  importJs: document.querySelector("#import-js"),
+  popoutJs: document.querySelector("#popout-js"),
+  applyCustomCode: document.querySelector("#apply-custom-code"),
+  clearCustomCode: document.querySelector("#clear-custom-code"),
+  customHtmlRoot: document.querySelector("#custom-html-root"),
   addAppPanel: document.querySelector("#add-app-panel"),
   addAppTitle: document.querySelector("#add-app-title"),
   addAppHelp: document.querySelector("#add-app-help"),
   appName: document.querySelector("#app-name"),
   appKind: document.querySelector("#app-kind"),
   appGroup: document.querySelector("#app-group"),
+  appTags: document.querySelector("#app-tags"),
   appIcon: document.querySelector("#app-icon"),
   appIconPath: document.querySelector("#app-icon-path"),
   browseIcon: document.querySelector("#browse-icon"),
@@ -97,6 +156,8 @@ const elements = {
   appTarget: document.querySelector("#app-target"),
   targetLabel: document.querySelector("#target-label"),
   browseTarget: document.querySelector("#browse-target"),
+  runAsAdminField: document.querySelector("#run-as-admin-field"),
+  appRunAsAdmin: document.querySelector("#app-run-as-admin"),
   commandFields: document.querySelector("#command-fields"),
   appArgs: document.querySelector("#app-args"),
   appCwd: document.querySelector("#app-cwd"),
@@ -108,13 +169,28 @@ const elements = {
   cancelEditApp: document.querySelector("#cancel-edit-app"),
   toggleSettings: document.querySelector("#toggle-settings"),
   restartApp: document.querySelector("#restart-app"),
+  importFont: document.querySelector("#import-font"),
+  resetFont: document.querySelector("#reset-font"),
   settingsPanel: document.querySelector("#settings-panel"),
   appOrientation: document.querySelector("#app-orientation"),
   cardLayout: document.querySelector("#card-layout"),
+  launchOnStartup: document.querySelector("#launch-on-startup"),
+  minimizeToTray: document.querySelector("#minimize-to-tray"),
+  advancedCustomization: document.querySelector("#advanced-customization"),
+  appSearch: document.querySelector("#app-search"),
+  tagFilter: document.querySelector("#tag-filter"),
+  clearSearch: document.querySelector("#clear-search"),
+  quickGroups: document.querySelector("#quick-groups"),
   launcherGroups: document.querySelector("#launcher-groups"),
   launcherEmpty: document.querySelector("#launcher-empty"),
   launcherStatus: document.querySelector("#launcher-status"),
-  statusBar: document.querySelector("#status-bar")
+  statusBar: document.querySelector("#status-bar"),
+  confirmModal: document.querySelector("#confirm-modal"),
+  confirmTitle: document.querySelector("#confirm-title"),
+  confirmMessage: document.querySelector("#confirm-message"),
+  confirmDetail: document.querySelector("#confirm-detail"),
+  confirmCancel: document.querySelector("#confirm-cancel"),
+  confirmOk: document.querySelector("#confirm-ok")
 };
 
 function escapeHtml(text) {
@@ -139,16 +215,85 @@ function hideResult(element) {
   element.classList.add("hidden");
 }
 
+function confirmAction({
+  title = "Confirm",
+  message = "",
+  detail = "",
+  confirmLabel = "Continue",
+  cancelLabel = "Cancel"
+} = {}) {
+  return new Promise((resolve) => {
+    const previousFocus = document.activeElement;
+
+    elements.confirmTitle.textContent = title;
+    elements.confirmMessage.textContent = message;
+    elements.confirmOk.textContent = confirmLabel;
+    elements.confirmCancel.textContent = cancelLabel;
+    elements.confirmDetail.textContent = detail;
+    elements.confirmDetail.classList.toggle("hidden", !detail);
+    elements.confirmModal.classList.remove("hidden");
+    elements.confirmOk.focus();
+
+    const cleanup = (value) => {
+      elements.confirmModal.classList.add("hidden");
+      elements.confirmOk.removeEventListener("click", onConfirm);
+      elements.confirmCancel.removeEventListener("click", onCancel);
+      elements.confirmModal.removeEventListener("click", onBackdrop);
+      document.removeEventListener("keydown", onKeydown);
+
+      if (previousFocus && typeof previousFocus.focus === "function") {
+        previousFocus.focus();
+      }
+
+      resolve(value);
+    };
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onBackdrop = (event) => {
+      if (event.target === elements.confirmModal) {
+        cleanup(false);
+      }
+    };
+    const onKeydown = (event) => {
+      if (event.key === "Escape") {
+        cleanup(false);
+      }
+    };
+
+    elements.confirmOk.addEventListener("click", onConfirm);
+    elements.confirmCancel.addEventListener("click", onCancel);
+    elements.confirmModal.addEventListener("click", onBackdrop);
+    document.addEventListener("keydown", onKeydown);
+  });
+}
+
 function showLauncherView() {
   elements.customizeView.classList.add("hidden");
+  elements.advancedEditorsView.classList.add("hidden");
   elements.launcherView.classList.remove("hidden");
   setStatus("App Launcher view open.", "idle");
 }
 
 function showCustomizeView() {
   elements.launcherView.classList.add("hidden");
+  elements.advancedEditorsView.classList.add("hidden");
   elements.customizeView.classList.remove("hidden");
   setStatus("Customize UI view open.", "idle");
+}
+
+function showAdvancedEditorsView() {
+  elements.launcherView.classList.add("hidden");
+  elements.customizeView.classList.add("hidden");
+  elements.advancedEditorsView.classList.remove("hidden");
+  updateAdvancedEditorLockState();
+  setStatus("Advanced Editors view open.", "idle");
+}
+
+function updateAdvancedEditorLockState() {
+  const unlocked = state.settings.advancedCustomization === true;
+  elements.advancedLocked.classList.toggle("hidden", unlocked);
+  elements.advancedEditorsGrid.classList.toggle("hidden", !unlocked);
+  elements.customCodePanel.classList.toggle("hidden", !unlocked);
 }
 
 function clearChildren(element) {
@@ -175,6 +320,76 @@ function splitCommandArgs(value) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function splitTags(value) {
+  return String(value ?? "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+function normalizeDuplicateText(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function getPayloadLaunchKey(payload) {
+  if (payload.kind === "command") {
+    return normalizeDuplicateText([
+      payload.kind,
+      payload.command,
+      ...(Array.isArray(payload.args) ? payload.args : []),
+      payload.cwd ?? ""
+    ].join("\u0000"));
+  }
+
+  return normalizeDuplicateText(`${payload.kind}\u0000${payload.target ?? ""}`);
+}
+
+function getEntryKey(entry) {
+  return getPayloadLaunchKey(entry);
+}
+
+function findDuplicateApp(payload) {
+  const nextName = normalizeDuplicateText(payload.name);
+  const nextLaunchKey = getPayloadLaunchKey(payload);
+
+  return state.entries.find((entry) => {
+    const isSameSource =
+      state.editingEntry &&
+      entry.sourceFile === state.editingEntry.sourceFile &&
+      entry.sourceIndex === state.editingEntry.sourceIndex;
+
+    if (isSameSource) {
+      return false;
+    }
+
+    if (normalizeDuplicateText(entry.name) === nextName) {
+      return true;
+    }
+
+    return getPayloadLaunchKey(entry) === nextLaunchKey;
+  });
+}
+
+function quoteCommandPart(value) {
+  const text = String(value);
+
+  if (text === "") {
+    return "\"\"";
+  }
+
+  if (!/[\s"&<>|^]/.test(text)) {
+    return text;
+  }
+
+  return `"${text.replaceAll("\"", "\"\"")}"`;
+}
+
+function buildCommandPreview(entry) {
+  const command = String(entry.command ?? entry.target ?? "").trim();
+  const args = Array.isArray(entry.args) ? entry.args : [];
+  return [command, ...args].map(quoteCommandPart).join(" ");
 }
 
 function setIfPresent(payload, key, value) {
@@ -232,10 +447,243 @@ function loadTheme() {
   } catch {
     state.theme = { ...DEFAULT_THEME };
   }
+
+  try {
+    state.customTheme = normalizeTheme({
+      ...DEFAULT_THEME,
+      preset: "custom",
+      ...JSON.parse(window.localStorage.getItem("homeLauncherCustomTheme") ?? "{}")
+    });
+    state.customTheme.preset = "custom";
+  } catch {
+    state.customTheme = { ...DEFAULT_THEME, preset: "custom" };
+  }
+
+  if (state.theme.preset === "custom") {
+    state.customTheme = { ...state.theme, preset: "custom" };
+  }
 }
 
 function saveTheme() {
   window.localStorage.setItem("homeLauncherTheme", JSON.stringify(state.theme));
+}
+
+function saveCustomTheme() {
+  state.customTheme = normalizeTheme({ ...state.theme, preset: "custom" });
+  state.customTheme.preset = "custom";
+  window.localStorage.setItem("homeLauncherCustomTheme", JSON.stringify(state.customTheme));
+}
+
+function normalizeCustomEffect(value) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    enabled: source.enabled === true,
+    css: String(source.css ?? ""),
+    name: String(source.name ?? "").trim()
+  };
+}
+
+function loadCustomEffect() {
+  try {
+    state.customEffect = normalizeCustomEffect(
+      JSON.parse(window.localStorage.getItem("homeLauncherCustomEffect") ?? "{}")
+    );
+  } catch {
+    state.customEffect = normalizeCustomEffect({});
+  }
+}
+
+function saveCustomEffect() {
+  window.localStorage.setItem("homeLauncherCustomEffect", JSON.stringify(state.customEffect));
+}
+
+function updateCustomEffectControls() {
+  elements.customEffectEnabled.checked = state.customEffect.enabled;
+  elements.customEffectCss.value = state.customEffect.css;
+  syncCodeEditor(elements.customEffectCss, elements.customEffectLines, elements.customEffectHighlight, "css");
+}
+
+function applyCustomEffect() {
+  let style = document.querySelector("#custom-effect-style");
+
+  if (!state.customEffect.enabled || !state.customEffect.css.trim()) {
+    if (style) {
+      style.remove();
+    }
+
+    updateCustomEffectControls();
+    return;
+  }
+
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "custom-effect-style";
+    document.head.appendChild(style);
+  }
+
+  style.textContent = state.customEffect.css;
+  updateCustomEffectControls();
+}
+
+function normalizeCustomCode(value) {
+  const source = value && typeof value === "object" ? value : {};
+
+  return {
+    htmlEnabled: source.htmlEnabled === true,
+    html: String(source.html ?? ""),
+    htmlName: String(source.htmlName ?? "").trim(),
+    jsEnabled: source.jsEnabled === true,
+    js: String(source.js ?? ""),
+    jsName: String(source.jsName ?? "").trim()
+  };
+}
+
+function loadCustomCode() {
+  try {
+    state.customCode = normalizeCustomCode(
+      JSON.parse(window.localStorage.getItem("homeLauncherCustomCode") ?? "{}")
+    );
+  } catch {
+    state.customCode = normalizeCustomCode({});
+  }
+}
+
+function saveCustomCode() {
+  window.localStorage.setItem("homeLauncherCustomCode", JSON.stringify(state.customCode));
+}
+
+function syncEditorsFromControls() {
+  state.customEffect.css = elements.customEffectCss.value;
+  state.customCode.html = elements.customHtmlCode.value;
+  state.customCode.js = elements.customJsCode.value;
+}
+
+function autosaveCustomEditors({ silent = false } = {}) {
+  syncEditorsFromControls();
+  saveCustomEffect();
+  saveCustomCode();
+
+  if (!silent) {
+    setStatus("Advanced editors autosaved.", "success");
+  }
+}
+
+function getLineNumberText(value) {
+  const lineCount = Math.max(1, String(value ?? "").split("\n").length);
+  return Array.from({ length: lineCount }, (_, index) => String(index + 1)).join("\n");
+}
+
+function classifyCodeToken(token, language) {
+  if (/^\/\*[\s\S]*\*\/$/.test(token) || /^\/\//.test(token) || /^<!--[\s\S]*-->$/.test(token)) {
+    return "comment";
+  }
+
+  if (/^["'`]/.test(token)) {
+    return "string";
+  }
+
+  if (language === "html" && /^<\/?[A-Za-z]/.test(token)) {
+    return "tag";
+  }
+
+  if (/^#[0-9a-fA-F]{3,8}\b/.test(token)) {
+    return "color";
+  }
+
+  if (/^\d/.test(token)) {
+    return "number";
+  }
+
+  if (language === "css") {
+    return "property";
+  }
+
+  return "keyword";
+}
+
+function highlightCode(value, language) {
+  const source = String(value ?? "");
+  const patterns = {
+    css: /\/\*[\s\S]*?\*\/|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[0-9a-fA-F]{3,8}\b|\b\d+(?:\.\d+)?(?:px|rem|em|%|vh|vw|s)?\b|\b(?:body|html|content|position|fixed|absolute|relative|inset|pointer-events|background|linear-gradient|radial-gradient|rgba|transparent|color|display|grid|flex|border|padding|margin|z-index|opacity|transform|animation|keyframes|filter|box-shadow)\b/g,
+    html: /<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g,
+    js: /\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`|\b\d+(?:\.\d+)?\b|\b(?:const|let|var|function|return|if|else|for|while|try|catch|class|new|async|await|true|false|null|undefined|document|window|localStorage|querySelector|addEventListener|setInterval|clearInterval|JSON|String|Array|Object)\b/g
+  };
+  const pattern = patterns[language] ?? patterns.js;
+  let html = "";
+  let cursor = 0;
+
+  for (const match of source.matchAll(pattern)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    html += escapeHtml(source.slice(cursor, index));
+    html += `<span class="token-${classifyCodeToken(token, language)}">${escapeHtml(token)}</span>`;
+    cursor = index + token.length;
+  }
+
+  html += escapeHtml(source.slice(cursor));
+  return html || " ";
+}
+
+function syncCodeEditor(textarea, lineElement, highlightElement, language) {
+  lineElement.textContent = getLineNumberText(textarea.value);
+  lineElement.scrollTop = textarea.scrollTop;
+  highlightElement.innerHTML = highlightCode(textarea.value, language);
+  highlightElement.scrollTop = textarea.scrollTop;
+  highlightElement.scrollLeft = textarea.scrollLeft;
+}
+
+function setupCodeEditor(textarea, lineElement, highlightElement, language) {
+  const sync = () => syncCodeEditor(textarea, lineElement, highlightElement, language);
+  textarea.addEventListener("input", sync);
+  textarea.addEventListener("scroll", sync);
+  sync();
+}
+
+function updateAdvancedCodeEditors() {
+  syncCodeEditor(elements.customEffectCss, elements.customEffectLines, elements.customEffectHighlight, "css");
+  syncCodeEditor(elements.customHtmlCode, elements.customHtmlLines, elements.customHtmlHighlight, "html");
+  syncCodeEditor(elements.customJsCode, elements.customJsLines, elements.customJsHighlight, "js");
+}
+
+function updateCustomCodeControls() {
+  elements.customHtmlEnabled.checked = state.customCode.htmlEnabled;
+  elements.customHtmlCode.value = state.customCode.html;
+  elements.customJsEnabled.checked = state.customCode.jsEnabled;
+  elements.customJsCode.value = state.customCode.js;
+  updateAdvancedCodeEditors();
+  updateAdvancedEditorLockState();
+}
+
+function clearAppliedCustomCode() {
+  elements.customHtmlRoot.innerHTML = "";
+}
+
+function applyCustomCode({ runJs = true } = {}) {
+  clearAppliedCustomCode();
+
+  if (!state.settings.advancedCustomization) {
+    updateCustomCodeControls();
+    return;
+  }
+
+  if (state.customCode.htmlEnabled && state.customCode.html.trim()) {
+    elements.customHtmlRoot.innerHTML = state.customCode.html;
+  }
+
+  if (runJs && state.customCode.jsEnabled && state.customCode.js.trim()) {
+    try {
+      Function("window", "document", "homeLauncher", state.customCode.js)(
+        window,
+        document,
+        window.homeLauncher
+      );
+    } catch (error) {
+      setStatus(`Custom JS error: ${error.message}`, "error");
+    }
+  }
+
+  updateCustomCodeControls();
 }
 
 function getGradientBackground(theme) {
@@ -301,6 +749,10 @@ function setThemeFromControls({ customPreset = true } = {}) {
   });
   applyTheme();
   saveTheme();
+
+  if (state.theme.preset === "custom") {
+    saveCustomTheme();
+  }
 }
 
 function applyThemePreset(presetName) {
@@ -311,21 +763,30 @@ function applyThemePreset(presetName) {
   setStatus(`Applied ${elements.themePreset.options[elements.themePreset.selectedIndex].text} theme.`, "success");
 }
 
-function resetThemeWithConfirmation() {
-  if (!window.confirm("Reset UI colors and effects back to normal?")) {
+async function resetThemeWithConfirmation() {
+  const confirmed = await confirmAction({
+    title: "Reset Colors",
+    message: "Reset UI colors and effects back to normal?",
+    confirmLabel: "Reset Colors"
+  });
+
+  if (!confirmed) {
     setStatus("Theme reset canceled.", "idle");
     return;
   }
 
   state.theme = { ...DEFAULT_THEME };
+  state.customTheme = { ...DEFAULT_THEME, preset: "custom" };
   applyTheme();
   saveTheme();
+  window.localStorage.setItem("homeLauncherCustomTheme", JSON.stringify(state.customTheme));
   setStatus("UI colors reset to normal.", "success");
 }
 
 function updateAddAppForm() {
   const kind = normalizeAppKind(elements.appKind.value);
   const isCommand = kind === "command";
+  const canRunAsAdmin = kind === "command" || kind === "executable";
   const isUrl = kind === "url";
   const isEditing = Boolean(state.editingEntry);
   const labels = {
@@ -347,6 +808,12 @@ function updateAddAppForm() {
   elements.appTarget.placeholder = placeholders[kind];
   elements.browseTarget.disabled = isUrl;
   elements.browseTarget.title = isUrl ? "Type website URLs manually." : "";
+  elements.runAsAdminField.classList.toggle("hidden", !canRunAsAdmin);
+
+  if (!canRunAsAdmin) {
+    elements.appRunAsAdmin.checked = false;
+  }
+
   elements.commandFields.classList.toggle("hidden", !isCommand);
   elements.addAppTitle.textContent = isEditing ? "Edit App" : "Add App";
   elements.addAppHelp.textContent = isEditing
@@ -384,8 +851,10 @@ function buildAddAppPayload() {
 
   setIfPresent(payload, "description", elements.appDescription.value);
   setIfPresent(payload, "group", elements.appGroup.value);
+  payload.tags = splitTags(elements.appTags.value);
   setIfPresent(payload, "icon", elements.appIcon.value);
   setIfPresent(payload, "iconPath", elements.appIconPath.value);
+  payload.runAsAdmin = elements.appRunAsAdmin.checked;
 
   if (kind === "command") {
     payload.command = elements.appTarget.value;
@@ -405,6 +874,7 @@ function populateAddAppForm(entry, options = {}) {
   elements.appName.value = entry.name ?? "";
   elements.appKind.value = normalizeAppKind(entry.kind);
   elements.appGroup.value = entry.group ?? "";
+  elements.appTags.value = Array.isArray(entry.tags) ? entry.tags.join(", ") : "";
   elements.appIcon.value = entry.icon ?? "";
   elements.appIconPath.value = entry.rawIconPath ?? entry.iconPath ?? "";
   elements.appDescription.value = entry.description ?? "";
@@ -416,6 +886,7 @@ function populateAddAppForm(entry, options = {}) {
   elements.appCwd.value = entry.rawCwd ?? entry.cwd ?? "";
   elements.appConsoleWindow.value = entry.consoleWindow ?? "normal";
   elements.appKeepOpen.checked = entry.keepOpen === true;
+  elements.appRunAsAdmin.checked = entry.runAsAdmin === true;
 
   if (options.keepPanelState !== true) {
     elements.addAppPanel.classList.remove("hidden");
@@ -430,9 +901,17 @@ function loadSettings() {
     const parsed = JSON.parse(window.localStorage.getItem("homeLauncherSettings") ?? "{}");
     state.settings.appOrientation = normalizeOrientation(parsed.appOrientation ?? "vertical");
     state.settings.cardLayout = normalizeCardLayout(parsed.cardLayout ?? parsed.layoutMode);
+    state.settings.launchOnStartup = parsed.launchOnStartup === true;
+    state.settings.minimizeToTray = parsed.minimizeToTray === true;
+    state.settings.advancedCustomization = parsed.advancedCustomization === true;
+    state.settings.customFont = parsed.customFont && typeof parsed.customFont === "object" ? parsed.customFont : null;
   } catch {
     state.settings.appOrientation = "vertical";
     state.settings.cardLayout = "horizontal";
+    state.settings.launchOnStartup = false;
+    state.settings.minimizeToTray = false;
+    state.settings.advancedCustomization = false;
+    state.settings.customFont = null;
   }
 }
 
@@ -440,7 +919,7 @@ function saveSettings() {
   window.localStorage.setItem("homeLauncherSettings", JSON.stringify(state.settings));
 }
 
-function applySettings() {
+function applySettings({ syncTray = false } = {}) {
   const appOrientation = normalizeOrientation(state.settings.appOrientation);
   const cardLayout = normalizeCardLayout(state.settings.cardLayout);
   const effectiveCardLayout = appOrientation === "vertical" ? "vertical" : cardLayout;
@@ -448,6 +927,9 @@ function applySettings() {
   state.settings.cardLayout = cardLayout;
   elements.appOrientation.value = appOrientation;
   elements.cardLayout.value = effectiveCardLayout;
+  elements.launchOnStartup.checked = state.settings.launchOnStartup;
+  elements.minimizeToTray.checked = state.settings.minimizeToTray;
+  elements.advancedCustomization.checked = state.settings.advancedCustomization;
   elements.cardLayout.disabled = appOrientation === "vertical";
   elements.cardLayout.title =
     appOrientation === "vertical"
@@ -463,6 +945,72 @@ function applySettings() {
       setStatus(error.message, "error");
     });
   }
+
+  if (syncTray && window.homeLauncher?.setTray) {
+    window.homeLauncher.setTray(state.settings.minimizeToTray).catch((error) => {
+      setStatus(error.message, "error");
+    });
+  }
+
+  applyCustomFont();
+  applyCustomCode({ runJs: false });
+}
+
+function applyCustomFont() {
+  let style = document.querySelector("#custom-font-style");
+
+  if (!state.settings.customFont) {
+    if (style) {
+      style.remove();
+    }
+
+    document.documentElement.style.removeProperty("--font-body");
+    document.documentElement.style.removeProperty("--font-display");
+    return;
+  }
+
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "custom-font-style";
+    document.head.appendChild(style);
+  }
+
+  const fontName = `HomeCustomFont-${String(state.settings.customFont.name ?? "Imported").replace(/[^a-z0-9_-]/gi, "")}`;
+  style.textContent = `@font-face { font-family: "${fontName}"; src: url("${state.settings.customFont.url}"); }`;
+  document.documentElement.style.setProperty("--font-body", `"${fontName}", "Aptos", sans-serif`);
+  document.documentElement.style.setProperty("--font-display", `"${fontName}", "Bahnschrift", sans-serif`);
+}
+
+function loadActivity() {
+  try {
+    state.favorites = new Set(JSON.parse(window.localStorage.getItem("homeLauncherFavorites") ?? "[]"));
+  } catch {
+    state.favorites = new Set();
+  }
+
+  try {
+    state.launchStats = JSON.parse(window.localStorage.getItem("homeLauncherLaunchStats") ?? "{}");
+  } catch {
+    state.launchStats = {};
+  }
+}
+
+function saveFavorites() {
+  window.localStorage.setItem("homeLauncherFavorites", JSON.stringify(Array.from(state.favorites)));
+}
+
+function saveLaunchStats() {
+  window.localStorage.setItem("homeLauncherLaunchStats", JSON.stringify(state.launchStats));
+}
+
+function recordLaunch(entry) {
+  const key = getEntryKey(entry);
+  const current = state.launchStats[key] ?? {};
+  state.launchStats[key] = {
+    count: Number(current.count ?? 0) + 1,
+    lastLaunchedAt: Date.now()
+  };
+  saveLaunchStats();
 }
 
 function getKindLabel(kind) {
@@ -485,6 +1033,60 @@ function getKindLabel(kind) {
   return "file";
 }
 
+function getSearchText(entry) {
+  return [
+    entry.name,
+    entry.description,
+    entry.group,
+    entry.kind,
+    entry.target,
+    entry.command,
+    entry.cwd,
+    entry.sourceFile,
+    Array.isArray(entry.tags) ? entry.tags.join(" ") : "",
+    Array.isArray(entry.args) ? entry.args.join(" ") : ""
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function getFilteredEntries() {
+  const query = state.searchQuery.trim().toLowerCase();
+  const tag = state.tagFilter.trim().toLowerCase();
+  let entries = state.entries;
+
+  if (tag) {
+    entries = entries.filter((entry) =>
+      Array.isArray(entry.tags) && entry.tags.some((entryTag) => entryTag.toLowerCase() === tag)
+    );
+  }
+
+  if (!query) {
+    return entries;
+  }
+
+  return entries.filter((entry) => getSearchText(entry).includes(query));
+}
+
+function updateTagFilterOptions() {
+  const selected = elements.tagFilter.value;
+  const tags = Array.from(
+    new Set(state.entries.flatMap((entry) => Array.isArray(entry.tags) ? entry.tags : []))
+  ).sort((left, right) => left.localeCompare(right));
+
+  elements.tagFilter.innerHTML = '<option value="">All tags</option>';
+
+  for (const tag of tags) {
+    const option = document.createElement("option");
+    option.value = tag;
+    option.textContent = tag;
+    elements.tagFilter.appendChild(option);
+  }
+
+  elements.tagFilter.value = tags.includes(selected) ? selected : "";
+  state.tagFilter = elements.tagFilter.value;
+}
+
 function groupEntries(entries) {
   const groups = new Map();
 
@@ -504,6 +1106,8 @@ function groupEntries(entries) {
 function buildLauncherCard(entry) {
   const card = document.createElement("div");
   card.className = "launcher-card";
+  card.draggable = entry.sourceFile === "apps.json";
+  card.dataset.entryId = entry.id;
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   card.setAttribute("aria-label", `Launch ${entry.name}`);
@@ -549,20 +1153,83 @@ function buildLauncherCard(entry) {
     setStatus(`Editing ${entry.name}.`, "idle");
   });
 
+  const favoriteButton = document.createElement("button");
+  favoriteButton.type = "button";
+  favoriteButton.className = "launcher-card-favorite";
+  const favoriteKey = getEntryKey(entry);
+  favoriteButton.textContent = state.favorites.has(favoriteKey) ? "Pinned" : "Pin";
+  favoriteButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+
+    if (state.favorites.has(favoriteKey)) {
+      state.favorites.delete(favoriteKey);
+      setStatus(`Unpinned ${entry.name}.`, "idle");
+    } else {
+      state.favorites.add(favoriteKey);
+      setStatus(`Pinned ${entry.name}.`, "success");
+    }
+
+    saveFavorites();
+    renderLauncher();
+  });
+
   const description = document.createElement("p");
   description.textContent = entry.description || `Launch ${entry.name}.`;
 
   const meta = document.createElement("div");
   meta.className = "launcher-card-meta";
 
-  for (const value of [getKindLabel(entry.kind), entry.sourceFile]) {
+  for (const value of [getKindLabel(entry.kind), entry.sourceFile, ...(Array.isArray(entry.tags) ? entry.tags : [])]) {
     const pill = document.createElement("span");
     pill.className = "launcher-pill";
     pill.textContent = value;
     meta.appendChild(pill);
   }
 
-  card.append(icon, title, editButton, description, meta);
+  if (Array.isArray(entry.warnings) && entry.warnings.length > 0) {
+    const warningPill = document.createElement("span");
+    warningPill.className = "launcher-pill warning-pill";
+    warningPill.textContent = "warning";
+    warningPill.title = entry.warnings.join("\n");
+    meta.appendChild(warningPill);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "launcher-card-actions";
+  actions.append(favoriteButton, editButton);
+
+  card.append(icon, title, actions, description, meta);
+  card.addEventListener("dragstart", (event) => {
+    if (!card.draggable) {
+      return;
+    }
+
+    state.draggedEntryId = entry.id;
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", entry.id);
+    card.classList.add("dragging");
+  });
+  card.addEventListener("dragend", () => {
+    state.draggedEntryId = "";
+    card.classList.remove("dragging");
+  });
+  card.addEventListener("dragover", (event) => {
+    if (!state.draggedEntryId || state.draggedEntryId === entry.id || entry.sourceFile !== "apps.json") {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  card.addEventListener("drop", async (event) => {
+    event.preventDefault();
+
+    if (!state.draggedEntryId || state.draggedEntryId === entry.id) {
+      return;
+    }
+
+    await reorderDefaultApps(state.draggedEntryId, entry.id);
+  });
   card.addEventListener("click", async (event) => {
     if (event.target.closest("button")) {
       return;
@@ -588,10 +1255,21 @@ function buildLauncherCard(entry) {
 
 function renderLauncher() {
   clearChildren(elements.launcherGroups);
+  clearChildren(elements.quickGroups);
   elements.configPath.textContent = state.configDir || "";
-  elements.launcherEmpty.classList.toggle("hidden", state.entries.length > 0);
+  const visibleEntries = getFilteredEntries();
+  const hasEntries = state.entries.length > 0;
+  elements.launcherEmpty.classList.toggle("hidden", visibleEntries.length > 0);
 
-  for (const [groupName, entries] of groupEntries(state.entries)) {
+  if (!hasEntries) {
+    elements.launcherEmpty.querySelector("strong").textContent = "No launcher apps configured yet.";
+    elements.launcherEmpty.querySelector("p").textContent = "Open `/Home/Confg`, add a JSON file, then reload the launcher.";
+  } else if (visibleEntries.length === 0) {
+    elements.launcherEmpty.querySelector("strong").textContent = "No apps match this search.";
+    elements.launcherEmpty.querySelector("p").textContent = "Clear the search or try a different name, group, kind, path, or description.";
+  }
+
+  for (const [groupName, entries] of groupEntries(visibleEntries)) {
     const section = document.createElement("section");
     section.className = "launcher-group";
 
@@ -617,19 +1295,101 @@ function renderLauncher() {
     elements.launcherGroups.appendChild(section);
   }
 
+  const statusLines = [];
+
   if (state.errors.length > 0) {
-    renderResult(elements.launcherStatus, ["Launcher Config Warnings", ...state.errors]);
+    statusLines.push("Launcher Config Errors", ...state.errors);
+  }
+
+  if (state.warnings.length > 0) {
+    statusLines.push("Launcher Config Warnings", ...state.warnings);
+  }
+
+  if (statusLines.length > 0) {
+    renderResult(elements.launcherStatus, statusLines);
     return;
   }
 
   hideResult(elements.launcherStatus);
 }
 
+function renderQuickGroups(visibleEntries) {
+  const byKey = new Map(visibleEntries.map((entry) => [getEntryKey(entry), entry]));
+  const favorites = Array.from(state.favorites)
+    .map((key) => byKey.get(key))
+    .filter(Boolean)
+    .slice(0, 8);
+  const recent = visibleEntries
+    .filter((entry) => state.launchStats[getEntryKey(entry)]?.lastLaunchedAt)
+    .sort((left, right) =>
+      state.launchStats[getEntryKey(right)].lastLaunchedAt - state.launchStats[getEntryKey(left)].lastLaunchedAt
+    )
+    .slice(0, 6);
+  const mostUsed = visibleEntries
+    .filter((entry) => state.launchStats[getEntryKey(entry)]?.count)
+    .sort((left, right) =>
+      state.launchStats[getEntryKey(right)].count - state.launchStats[getEntryKey(left)].count
+    )
+    .slice(0, 6);
+
+  for (const [label, entries] of [
+    ["Pinned", favorites],
+    ["Recent", recent],
+    ["Most Used", mostUsed]
+  ]) {
+    if (entries.length === 0) {
+      continue;
+    }
+
+    const section = document.createElement("section");
+    section.className = "launcher-group quick-group";
+    const header = document.createElement("div");
+    header.className = "group-header";
+    const titleWrap = document.createElement("div");
+    const title = document.createElement("h3");
+    title.textContent = label;
+    const sub = document.createElement("p");
+    sub.textContent = `${entries.length.toLocaleString()} app${entries.length === 1 ? "" : "s"}`;
+    titleWrap.append(title, sub);
+    header.appendChild(titleWrap);
+    const grid = document.createElement("div");
+    grid.className = "launcher-grid";
+    entries.forEach((entry) => grid.appendChild(buildLauncherCard(entry)));
+    section.append(header, grid);
+    elements.quickGroups.appendChild(section);
+  }
+}
+
+async function reorderDefaultApps(draggedId, targetId) {
+  const defaultEntries = state.entries.filter((entry) => entry.sourceFile === "apps.json");
+  const draggedIndex = defaultEntries.findIndex((entry) => entry.id === draggedId);
+  const targetIndex = defaultEntries.findIndex((entry) => entry.id === targetId);
+
+  if (draggedIndex < 0 || targetIndex < 0) {
+    setStatus("Only apps from apps.json can be reordered.", "error");
+    return;
+  }
+
+  const [moved] = defaultEntries.splice(draggedIndex, 1);
+  defaultEntries.splice(targetIndex, 0, moved);
+
+  try {
+    setStatus("Saving app order...", "busy");
+    await window.homeLauncher.reorderApps({ orderedIds: defaultEntries.map((entry) => entry.id) });
+    await loadLauncher(false);
+    setStatus("App order updated.", "success");
+  } catch (error) {
+    setStatus(error.message, "error");
+  }
+}
+
 async function loadLauncher(showStatus = false) {
   const result = await window.homeLauncher.load();
   state.entries = Array.isArray(result.entries) ? result.entries : [];
   state.errors = Array.isArray(result.errors) ? result.errors : [];
+  state.warnings = Array.isArray(result.warnings) ? result.warnings : [];
   state.configDir = result.configDir ?? "";
+  updateTagFilterOptions();
   renderLauncher();
 
   if (showStatus) {
@@ -642,6 +1402,35 @@ async function loadLauncher(showStatus = false) {
 
 async function launchEntry(entry) {
   try {
+    if (entry.runAsAdmin === true) {
+      const confirmed = await confirmAction({
+        title: "Administrator Launch",
+        message: `Launch ${entry.name} as administrator? Windows may show a UAC prompt.`,
+        confirmLabel: "Launch"
+      });
+
+      if (!confirmed) {
+        setStatus("Administrator launch canceled.", "idle");
+        return;
+      }
+    }
+
+    if (entry.kind === "command") {
+      const preview = buildCommandPreview(entry);
+      const cwd = entry.cwd ? `Working directory:\n${entry.cwd}` : "";
+      const confirmed = await confirmAction({
+        title: "Run Command",
+        message: `Run this command for ${entry.name}?`,
+        detail: cwd ? `${preview}\n\n${cwd}` : preview,
+        confirmLabel: "Run"
+      });
+
+      if (!confirmed) {
+        setStatus("Command launch canceled.", "idle");
+        return;
+      }
+    }
+
     await window.homeLauncher.openTarget({
       kind: entry.kind,
       target: entry.target,
@@ -649,8 +1438,11 @@ async function launchEntry(entry) {
       args: entry.args,
       cwd: entry.cwd,
       keepOpen: entry.keepOpen,
-      consoleWindow: entry.consoleWindow
+      consoleWindow: entry.consoleWindow,
+      runAsAdmin: entry.runAsAdmin
     });
+    recordLaunch(entry);
+    renderLauncher();
     setStatus(`Launched ${entry.name}.`, "success");
   } catch (error) {
     setStatus(error.message, "error");
@@ -658,7 +1450,13 @@ async function launchEntry(entry) {
 }
 
 async function restartWithConfirmation(message) {
-  if (!window.confirm(message)) {
+  const confirmed = await confirmAction({
+    title: "Restart App",
+    message,
+    confirmLabel: "Restart"
+  });
+
+  if (!confirmed) {
     setStatus("Restart canceled.", "idle");
     return false;
   }
@@ -685,6 +1483,67 @@ function registerButtons() {
     }
   });
 
+  elements.exportConfig.addEventListener("click", async () => {
+    try {
+      setStatus("Exporting launcher config...", "busy");
+      const result = await window.homeLauncher.exportConfig();
+
+      if (!result) {
+        setStatus("Config export canceled.", "idle");
+        return;
+      }
+
+      setStatus(`Exported config to ${result.exportPath}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.importConfig.addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Import Config",
+      message: "Import a launcher config and replace apps.json? A backup of the current apps.json will be created first.",
+      confirmLabel: "Import"
+    });
+
+    if (!confirmed) {
+      setStatus("Config import canceled.", "idle");
+      return;
+    }
+
+    try {
+      setStatus("Importing launcher config...", "busy");
+      const result = await window.homeLauncher.importConfig();
+
+      if (!result) {
+        setStatus("Config import canceled.", "idle");
+        return;
+      }
+
+      await loadLauncher(false);
+      setStatus(`Imported ${result.count.toLocaleString()} app${result.count === 1 ? "" : "s"}. Backup saved to ${result.backupPath}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.scanFolder.addEventListener("click", async () => {
+    try {
+      setStatus("Scanning folder...", "busy");
+      const result = await window.homeLauncher.scanFolder();
+
+      if (!result) {
+        setStatus("Folder scan canceled.", "idle");
+        return;
+      }
+
+      await loadLauncher(false);
+      setStatus(`Added ${result.added.length.toLocaleString()} app${result.added.length === 1 ? "" : "s"} from scan. Skipped ${result.skipped.toLocaleString()}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
   elements.reloadLauncher.addEventListener("click", async () => {
     try {
       setStatus("Reloading launcher apps...", "busy");
@@ -694,18 +1553,62 @@ function registerButtons() {
     }
   });
 
+  elements.appSearch.addEventListener("input", () => {
+    state.searchQuery = elements.appSearch.value;
+    renderLauncher();
+  });
+
+  elements.tagFilter.addEventListener("change", () => {
+    state.tagFilter = elements.tagFilter.value;
+    renderLauncher();
+  });
+
+  elements.clearSearch.addEventListener("click", () => {
+    elements.appSearch.value = "";
+    elements.tagFilter.value = "";
+    state.searchQuery = "";
+    state.tagFilter = "";
+    renderLauncher();
+    setStatus("Filters cleared.", "idle");
+  });
+
   elements.toggleCustomize.addEventListener("click", () => {
     showCustomizeView();
   });
 
+  elements.toggleAdvancedEditors.addEventListener("click", () => {
+    showAdvancedEditorsView();
+  });
+
   elements.backToLauncher.addEventListener("click", showLauncherView);
+  elements.advancedBackToLauncher.addEventListener("click", showLauncherView);
+  elements.advancedBackToCustomize.addEventListener("click", showCustomizeView);
+  elements.popoutAllEditors.addEventListener("click", async () => {
+    if (!state.settings.advancedCustomization) {
+      setStatus("Enable Advanced customization in Settings first.", "error");
+      return;
+    }
+
+    autosaveCustomEditors({ silent: true });
+
+    try {
+      await Promise.all([
+        window.homeLauncher.openEditorWindow({ kind: "effect" }),
+        window.homeLauncher.openEditorWindow({ kind: "html" }),
+        window.homeLauncher.openEditorWindow({ kind: "js" })
+      ]);
+      setStatus("All advanced editors popped out.", "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
 
   elements.themePreset.addEventListener("change", () => {
     if (elements.themePreset.value === "custom") {
-      state.theme.preset = "custom";
+      state.theme = normalizeTheme({ ...state.customTheme, preset: "custom" });
       applyTheme();
       saveTheme();
-      setStatus("Theme preset set to custom.", "idle");
+      setStatus("Restored custom theme.", "success");
       return;
     }
 
@@ -732,6 +1635,224 @@ function registerButtons() {
   }
 
   elements.resetTheme.addEventListener("click", resetThemeWithConfirmation);
+
+  elements.customEffectEnabled.addEventListener("change", () => {
+    state.customEffect.enabled = elements.customEffectEnabled.checked;
+    state.customEffect.css = elements.customEffectCss.value;
+    applyCustomEffect();
+    saveCustomEffect();
+    setStatus(`Custom effect ${state.customEffect.enabled ? "enabled" : "disabled"}.`, "success");
+  });
+
+  elements.customEffectCss.addEventListener("input", () => {
+    state.customEffect.css = elements.customEffectCss.value;
+    saveCustomEffect();
+  });
+
+  elements.applyCustomEffect.addEventListener("click", () => {
+    state.customEffect.css = elements.customEffectCss.value;
+    state.customEffect.enabled = true;
+    applyCustomEffect();
+    saveCustomEffect();
+    setStatus("Custom effect applied.", "success");
+  });
+
+  elements.importEffect.addEventListener("click", async () => {
+    try {
+      const effect = await window.homeLauncher.chooseEffect();
+
+      if (!effect) {
+        setStatus("Effect import canceled.", "idle");
+        return;
+      }
+
+      state.customEffect = normalizeCustomEffect({
+        enabled: true,
+        css: effect.css,
+        name: effect.name
+      });
+      applyCustomEffect();
+      saveCustomEffect();
+      setStatus(`Imported effect ${effect.name}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.popoutEffect.addEventListener("click", async () => {
+    autosaveCustomEditors({ silent: true });
+
+    try {
+      await window.homeLauncher.openEditorWindow({ kind: "effect" });
+      setStatus("Custom effect editor popped out.", "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.clearCustomEffect.addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Clear Custom Effect",
+      message: "Remove the saved custom effect CSS?",
+      confirmLabel: "Clear Effect"
+    });
+
+    if (!confirmed) {
+      setStatus("Custom effect clear canceled.", "idle");
+      return;
+    }
+
+    state.customEffect = normalizeCustomEffect({});
+    applyCustomEffect();
+    saveCustomEffect();
+    setStatus("Custom effect cleared.", "idle");
+  });
+
+  elements.customHtmlEnabled.addEventListener("change", () => {
+    state.customCode.htmlEnabled = elements.customHtmlEnabled.checked;
+    state.customCode.html = elements.customHtmlCode.value;
+    applyCustomCode({ runJs: false });
+    saveCustomCode();
+    setStatus(`Embedded HTML ${state.customCode.htmlEnabled ? "enabled" : "disabled"}.`, "success");
+  });
+
+  elements.customHtmlCode.addEventListener("input", () => {
+    state.customCode.html = elements.customHtmlCode.value;
+    saveCustomCode();
+  });
+
+  elements.importHtml.addEventListener("click", async () => {
+    try {
+      const file = await window.homeLauncher.chooseCustomCode({ kind: "html" });
+
+      if (!file) {
+        setStatus("HTML import canceled.", "idle");
+        return;
+      }
+
+      state.customCode.html = file.code;
+      state.customCode.htmlName = file.name;
+      state.customCode.htmlEnabled = true;
+      applyCustomCode({ runJs: false });
+      saveCustomCode();
+      setStatus(`Imported HTML ${file.name}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.popoutHtml.addEventListener("click", async () => {
+    autosaveCustomEditors({ silent: true });
+
+    try {
+      await window.homeLauncher.openEditorWindow({ kind: "html" });
+      setStatus("HTML editor popped out.", "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.customJsEnabled.addEventListener("change", async () => {
+    const enabled = elements.customJsEnabled.checked;
+
+    if (enabled) {
+      const confirmed = await confirmAction({
+        title: "Enable Custom JavaScript",
+        message: "Custom JavaScript can change the launcher page. Only enable code you trust.",
+        confirmLabel: "Enable JS"
+      });
+
+      if (!confirmed) {
+        elements.customJsEnabled.checked = false;
+        setStatus("Custom JS enable canceled.", "idle");
+        return;
+      }
+    }
+
+    state.customCode.jsEnabled = enabled;
+    state.customCode.js = elements.customJsCode.value;
+    applyCustomCode({ runJs: enabled });
+    saveCustomCode();
+    setStatus(`Embedded JavaScript ${enabled ? "enabled" : "disabled"}.`, "success");
+  });
+
+  elements.customJsCode.addEventListener("input", () => {
+    state.customCode.js = elements.customJsCode.value;
+    saveCustomCode();
+  });
+
+  elements.importJs.addEventListener("click", async () => {
+    try {
+      const file = await window.homeLauncher.chooseCustomCode({ kind: "js" });
+
+      if (!file) {
+        setStatus("JS import canceled.", "idle");
+        return;
+      }
+
+      state.customCode.js = file.code;
+      state.customCode.jsName = file.name;
+      state.customCode.jsEnabled = false;
+      applyCustomCode({ runJs: false });
+      saveCustomCode();
+      setStatus(`Imported JS ${file.name}. Review it, then enable JavaScript to run it.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.popoutJs.addEventListener("click", async () => {
+    autosaveCustomEditors({ silent: true });
+
+    try {
+      await window.homeLauncher.openEditorWindow({ kind: "js" });
+      setStatus("JavaScript editor popped out.", "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.applyCustomCode.addEventListener("click", async () => {
+    state.customCode.html = elements.customHtmlCode.value;
+    state.customCode.js = elements.customJsCode.value;
+    state.customCode.htmlEnabled = elements.customHtmlEnabled.checked;
+    state.customCode.jsEnabled = elements.customJsEnabled.checked;
+
+    if (state.customCode.jsEnabled) {
+      const confirmed = await confirmAction({
+        title: "Run Custom JavaScript",
+        message: "Apply and run the embedded JavaScript now?",
+        confirmLabel: "Run JS"
+      });
+
+      if (!confirmed) {
+        setStatus("Custom embed apply canceled.", "idle");
+        return;
+      }
+    }
+
+    applyCustomCode({ runJs: true });
+    saveCustomCode();
+    setStatus("Advanced embed applied.", "success");
+  });
+
+  elements.clearCustomCode.addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Clear Advanced Embed",
+      message: "Remove saved embedded HTML and JavaScript?",
+      confirmLabel: "Clear Embed"
+    });
+
+    if (!confirmed) {
+      setStatus("Advanced embed clear canceled.", "idle");
+      return;
+    }
+
+    state.customCode = normalizeCustomCode({});
+    applyCustomCode({ runJs: false });
+    saveCustomCode();
+    setStatus("Advanced embed cleared.", "idle");
+  });
 
   elements.toggleAddApp.addEventListener("click", () => {
     const willOpen = elements.addAppPanel.classList.contains("hidden");
@@ -819,6 +1940,13 @@ function registerButtons() {
       const isEditing = Boolean(state.editingEntry);
       setStatus(isEditing ? "Updating launcher app..." : "Saving launcher app...", "busy");
       const payload = buildAddAppPayload();
+      const duplicate = findDuplicateApp(payload);
+
+      if (duplicate) {
+        setStatus(`Duplicate app detected: ${duplicate.name} already exists in ${duplicate.sourceFile}.`, "error");
+        return;
+      }
+
       const result = isEditing
         ? await window.homeLauncher.updateApp(payload)
         : await window.homeLauncher.addApp(payload);
@@ -843,6 +1971,42 @@ function registerButtons() {
     await restartWithConfirmation("Restart Home Launcher now?");
   });
 
+  elements.importFont.addEventListener("click", async () => {
+    try {
+      const font = await window.homeLauncher.chooseFont();
+
+      if (!font) {
+        setStatus("Font import canceled.", "idle");
+        return;
+      }
+
+      state.settings.customFont = font;
+      applyCustomFont();
+      saveSettings();
+      setStatus(`Imported font ${font.name}.`, "success");
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.resetFont.addEventListener("click", async () => {
+    const confirmed = await confirmAction({
+      title: "Reset Font",
+      message: "Reset the launcher font back to the default?",
+      confirmLabel: "Reset Font"
+    });
+
+    if (!confirmed) {
+      setStatus("Font reset canceled.", "idle");
+      return;
+    }
+
+    state.settings.customFont = null;
+    applyCustomFont();
+    saveSettings();
+    setStatus("Font reset.", "idle");
+  });
+
   elements.appOrientation.addEventListener("change", () => {
     const nextOrientation = normalizeOrientation(elements.appOrientation.value);
 
@@ -854,6 +2018,54 @@ function registerButtons() {
     applySettings();
     saveSettings();
     setStatus(`App orientation set to ${nextOrientation}.`, "success");
+  });
+
+  elements.launchOnStartup.addEventListener("change", () => {
+    state.settings.launchOnStartup = elements.launchOnStartup.checked;
+    applySettings();
+    saveSettings();
+    window.homeLauncher.setLaunchOnStartup(state.settings.launchOnStartup)
+      .then(() => {
+        setStatus(`Launch on startup ${state.settings.launchOnStartup ? "enabled" : "disabled"}.`, "success");
+      })
+      .catch((error) => {
+        elements.launchOnStartup.checked = !state.settings.launchOnStartup;
+        state.settings.launchOnStartup = elements.launchOnStartup.checked;
+        saveSettings();
+        setStatus(error.message, "error");
+      });
+  });
+
+  elements.minimizeToTray.addEventListener("change", () => {
+    state.settings.minimizeToTray = elements.minimizeToTray.checked;
+    applySettings({ syncTray: true });
+    saveSettings();
+    setStatus(`Minimize to tray ${state.settings.minimizeToTray ? "enabled" : "disabled"}.`, "success");
+  });
+
+  elements.advancedCustomization.addEventListener("change", async () => {
+    const enabled = elements.advancedCustomization.checked;
+
+    if (enabled) {
+      const confirmed = await confirmAction({
+        title: "Enable Advanced Customization",
+        message: "Advanced customization unlocks embedded HTML and JavaScript. Only use code you trust.",
+        confirmLabel: "Enable Advanced"
+      });
+
+      if (!confirmed) {
+        elements.advancedCustomization.checked = false;
+        setStatus("Advanced customization canceled.", "idle");
+        return;
+      }
+    }
+
+    state.settings.advancedCustomization = enabled;
+    applySettings();
+    applyCustomCode({ runJs: enabled });
+    saveSettings();
+    updateAdvancedEditorLockState();
+    setStatus(`Advanced customization ${enabled ? "enabled" : "disabled"}.`, "success");
   });
 
   elements.cardLayout.addEventListener("change", () => {
@@ -872,12 +2084,25 @@ function registerButtons() {
 
 async function initialize() {
   loadSettings();
+  loadActivity();
   loadTheme();
+  loadCustomEffect();
+  loadCustomCode();
   applyTheme();
-  applySettings();
+  applyCustomEffect();
+  applySettings({ syncTray: true });
+  applyCustomCode({ runJs: state.settings.advancedCustomization });
+  setupCodeEditor(elements.customEffectCss, elements.customEffectLines, elements.customEffectHighlight, "css");
+  setupCodeEditor(elements.customHtmlCode, elements.customHtmlLines, elements.customHtmlHighlight, "html");
+  setupCodeEditor(elements.customJsCode, elements.customJsLines, elements.customJsHighlight, "js");
   showLauncherView();
   updateAddAppForm();
   registerButtons();
+  setInterval(() => {
+    if (!elements.advancedEditorsView.classList.contains("hidden")) {
+      autosaveCustomEditors({ silent: true });
+    }
+  }, 5000);
   setStatus("Loading launcher apps...", "busy");
 
   try {
@@ -889,3 +2114,4 @@ async function initialize() {
 }
 
 initialize();
+  renderQuickGroups(visibleEntries);

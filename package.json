@@ -3,15 +3,50 @@
   "version": "1.0.0",
   "private": true,
   "description": "Standalone launcher app for external tools and apps",
+  "author": "Home Launcher Contributors",
   "main": "./main.js",
   "scripts": {
+    "build:installer": "electron-builder --win nsis",
+    "build:portable": "node ./scripts/build-portable.js",
     "start": "electron .",
     "test": "node ./test/launcher.test.js"
+  },
+  "build": {
+    "appId": "com.homelauncher.app",
+    "productName": "Home Launcher",
+    "directories": {
+      "output": "dist-installer"
+    },
+    "files": [
+      "Confg/**/*",
+      "ADV_MODDING_TUTORIAL.md",
+      "index.html",
+      "main.js",
+      "package.json",
+      "preload.js",
+      "README.md",
+      "renderer.js",
+      "src/**/*",
+      "styles.css"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Home Launcher"
+    }
   },
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
-    "electron": "^41.1.1"
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1"
   }
 }

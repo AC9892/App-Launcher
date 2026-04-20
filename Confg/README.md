@@ -6,6 +6,8 @@ Use the **Edit** button on an existing launcher card to update the JSON entry it
 
 The original manual method still works: add one or more `.json` files to this folder.
 
+Use `apps.sample.json` for a clean example that avoids local machine-specific paths. The sample file is ignored by the live launcher.
+
 Each file can be either:
 
 ```json
@@ -15,6 +17,8 @@ Each file can be either:
       "name": "Notepad",
       "kind": "executable",
       "target": "C:\\Windows\\System32\\notepad.exe",
+      "tags": ["tools", "windows"],
+      "runAsAdmin": false,
       "iconPath": "C:\\Path\\To\\notepad.png",
       "description": "Open Notepad"
     },
@@ -25,16 +29,16 @@ Each file can be either:
       "description": "Open the Home app folder"
     },
     {
-      "name": "ANTC Studio",
+      "name": "Example Electron App",
       "kind": "command",
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
         "node_modules\\electron\\cli.js",
         "."
       ],
-      "cwd": "..\\..\\App",
+      "cwd": "..\\..\\ExampleApp",
       "consoleWindow": "hidden",
-      "description": "Open the ANTC desktop app"
+      "description": "Open an Electron app"
     },
     {
       "name": "OpenAI",
@@ -62,6 +66,16 @@ Optional icon fields:
 - `icon` is fallback text shown when no `iconPath` is set or the icon image cannot load.
 - The app editor's Icon image picker writes `iconPath` and overrides the default generated initials.
 - If `iconPath` is empty, Home tries to use the target file, folder, executable, or absolute command's system icon automatically.
+
+Optional organization fields:
+
+- `group` controls which launcher group the app appears in.
+- `tags` can be an array like `["tools", "work"]` or a comma-separated string. Tags power the tag filter.
+- Entries in `apps.json` can be reordered by dragging cards in the UI.
+
+Optional launch fields:
+
+- `runAsAdmin: true` launches executable and command entries through Windows elevation. Windows may show a UAC prompt.
 
 For `kind: "command"`:
 

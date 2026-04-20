@@ -1,0 +1,31 @@
+{
+  "apps": [
+    {
+      "name": "Example Website",
+      "kind": "url",
+      "target": "https://example.com",
+      "group": "Examples",
+      "description": "Open a website"
+    },
+    {
+      "name": "Example Folder",
+      "kind": "folder",
+      "target": "..",
+      "group": "Examples",
+      "description": "Open the Home app folder"
+    },
+    {
+      "name": "Example Command",
+      "kind": "command",
+      "command": "cmd.exe",
+      "args": [
+        "/d",
+        "/c",
+        "echo Hello from Home Launcher"
+      ],
+      "keepOpen": true,
+      "group": "Examples",
+      "description": "Run a visible sample command"
+    }
+  ]
+}

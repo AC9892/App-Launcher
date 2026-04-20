@@ -58,6 +58,7 @@ body {
 }
 
 body {
+  position: relative;
   padding: 10px;
   overflow-x: hidden;
 }
@@ -66,7 +67,7 @@ body::before {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 0;
   pointer-events: none;
   opacity: 0;
 }
@@ -91,6 +92,8 @@ body.effect-scanlines::before {
 }
 
 .app-shell {
+  position: relative;
+  z-index: 1;
   width: min(1180px, 100%);
   margin: 0 auto;
 }
@@ -151,7 +154,8 @@ body.effect-scanlines::before {
 .app-vertical .actions,
 .app-vertical .form-grid,
 .app-vertical .command-fields,
-.app-vertical .target-row {
+.app-vertical .target-row,
+.app-vertical .launcher-tools {
   display: grid;
   grid-template-columns: 1fr;
 }
@@ -160,6 +164,7 @@ body.effect-scanlines::before {
 .app-vertical .actions .secondary,
 .app-vertical .settings-actions .secondary,
 .app-vertical .target-row .secondary,
+.app-vertical .launcher-tools .secondary,
 .app-vertical .form-actions button {
   width: 100%;
 }
@@ -246,6 +251,11 @@ body.effect-glass .settings-panel {
   font-weight: 700;
 }
 
+.warning-pill {
+  border-color: rgba(224, 188, 115, 0.42);
+  color: var(--warn);
+}
+
 .panel {
   padding: 14px;
 }
@@ -279,6 +289,7 @@ button {
 .actions .secondary,
 .settings-actions .secondary,
 .target-row .secondary,
+.launcher-tools .secondary,
 .form-actions .secondary,
 .launcher-card {
   border: 1px solid var(--line);
@@ -291,6 +302,7 @@ button {
 .actions .secondary,
 .settings-actions .secondary,
 .target-row .secondary,
+.launcher-tools .secondary,
 .form-actions .secondary {
   padding: 10px 12px;
   border-radius: 10px;
@@ -299,8 +311,8 @@ button {
 
 .settings-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 190px 220px auto;
-  align-items: end;
+  grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(150px, 190px));
+  align-items: start;
   gap: 12px;
   margin-top: 10px;
   padding: 12px;
@@ -319,6 +331,11 @@ button {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.settings-panel .checkbox-field {
+  min-height: 42px;
+  align-items: center;
 }
 
 .field {
@@ -363,6 +380,9 @@ button {
 
 .settings-actions {
   display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  flex-wrap: wrap;
   justify-content: flex-end;
 }
 
@@ -378,13 +398,17 @@ button {
   margin-top: 0;
 }
 
-.customize-panel h3 {
+.customize-panel h3,
+.custom-effect-panel h3,
+.custom-code-panel h3 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 0.98rem;
 }
 
-.customize-panel p {
+.customize-panel p,
+.custom-effect-panel p,
+.custom-code-panel p {
   margin: 4px 0 12px;
   color: var(--muted);
   font-size: 0.86rem;
@@ -406,6 +430,138 @@ button {
   min-height: 42px;
   align-items: end;
   padding-bottom: 10px;
+}
+
+.custom-effect-panel,
+.custom-code-panel {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
+.custom-effect-panel textarea,
+.custom-code-panel textarea {
+  min-height: 260px;
+}
+
+.code-editor-shell {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  min-height: 260px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #0c1014;
+}
+
+.line-numbers {
+  min-height: 100%;
+  margin: 0;
+  padding: 10px 8px;
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--muted);
+  font: 0.82rem/1.45 Consolas, "Cascadia Mono", monospace;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.code-highlight,
+.code-editor-shell textarea {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 260px;
+  border: 0;
+  border-radius: 0;
+  font: 0.82rem/1.45 Consolas, "Cascadia Mono", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+
+.code-highlight {
+  margin: 0;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: var(--text);
+  pointer-events: none;
+}
+
+.code-editor-shell textarea {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--text);
+}
+
+.code-editor-shell textarea::selection {
+  background: rgba(122, 162, 255, 0.34);
+}
+
+.code-editor-shell textarea::placeholder {
+  color: var(--muted);
+  -webkit-text-fill-color: var(--muted);
+}
+
+.token-comment {
+  color: #7e987d;
+  font-style: italic;
+}
+
+.token-string {
+  color: #e1bd78;
+}
+
+.token-keyword {
+  color: #7aa2ff;
+  font-weight: 700;
+}
+
+.token-number {
+  color: #85d8a6;
+}
+
+.token-tag {
+  color: #ef8f7a;
+}
+
+.token-property {
+  color: #9ccfff;
+}
+
+.token-color {
+  color: #c792ea;
+}
+
+.custom-code-panel .code-editor-shell,
+.custom-code-panel .code-highlight,
+.custom-code-panel .code-editor-shell textarea {
+  min-height: 170px;
+}
+
+.custom-html-root {
+  position: relative;
+  z-index: 2;
+}
+
+.advanced-editors-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.advanced-editors-grid .custom-effect-panel {
+  grid-column: 1;
+}
+
+.advanced-editors-grid .custom-code-panel {
+  grid-column: 2;
 }
 
 .danger-button {
@@ -503,6 +659,14 @@ button {
   background: var(--surface-soft);
 }
 
+.launcher-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
+  align-items: end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .note-card,
 .result-card {
   color: var(--muted);
@@ -515,6 +679,17 @@ button {
   flex-direction: column;
   gap: 12px;
   margin-top: 10px;
+}
+
+.quick-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.quick-group {
+  border-color: var(--line-strong);
 }
 
 .launcher-group {
@@ -618,6 +793,25 @@ button {
   font-size: 0.76rem;
 }
 
+.launcher-card-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.launcher-card-favorite {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(130, 215, 166, 0.08);
+  color: var(--ok);
+  font-size: 0.76rem;
+}
+
+.launcher-card.dragging {
+  opacity: 0.58;
+}
+
 .launcher-card-edit:hover {
   border-color: var(--line-strong);
   background: rgba(122, 162, 255, 0.14);
@@ -643,6 +837,8 @@ button {
 }
 
 .cards-vertical .launcher-groups,
+.cards-vertical .quick-groups,
+.app-vertical .quick-groups,
 .app-vertical .launcher-groups {
   display: grid;
   gap: 14px;
@@ -734,6 +930,85 @@ button {
   color: var(--error);
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.confirm-modal {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  width: min(480px, 100%);
+  padding: 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+}
+
+.confirm-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(224, 188, 115, 0.42);
+  background: rgba(224, 188, 115, 0.12);
+  color: var(--warn);
+  font-weight: 800;
+}
+
+.confirm-content h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+}
+
+.confirm-content p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.confirm-detail {
+  max-height: 180px;
+  overflow: auto;
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #0c1014;
+  color: var(--text);
+  white-space: pre-wrap;
+  font: 0.82rem/1.45 Consolas, "Cascadia Mono", monospace;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.confirm-actions .primary,
+.confirm-actions .secondary {
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.confirm-actions .secondary {
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
 .hidden {
   display: none !important;
 }
@@ -751,6 +1026,7 @@ button {
   .form-grid,
   .command-fields,
   .target-row,
+  .launcher-tools,
   .group-header,
   .actions {
     display: grid;
@@ -796,5 +1072,14 @@ button {
 
   .app-horizontal .status-bar {
     margin-top: 10px;
+  }
+
+  .advanced-editors-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .advanced-editors-grid .custom-effect-panel,
+  .advanced-editors-grid .custom-code-panel {
+    grid-column: 1;
   }
 }

@@ -16,7 +16,7 @@
         </div>
         <div class="app-badges">
           <span>HOME</span>
-          <span>v1</span>
+          <span>v1.2.0</span>
         </div>
       </header>
 
@@ -29,6 +29,9 @@
           <div class="actions">
             <button id="toggle-add-app" class="primary" type="button">Add App</button>
             <button id="open-config" class="secondary" type="button">Open Config</button>
+            <button id="export-config" class="secondary" type="button">Export Config</button>
+            <button id="import-config" class="secondary" type="button">Import Config</button>
+            <button id="scan-folder" class="secondary" type="button">Scan Folder</button>
             <button id="reload-launcher" class="secondary" type="button">Reload Apps</button>
             <button id="toggle-customize" class="secondary" type="button">Customize</button>
             <button id="toggle-settings" class="secondary" type="button">Settings</button>
@@ -48,13 +51,27 @@
             </select>
           </label>
           <label class="field compact-field">
-            <span>Launcher card layout (horizontal app)</span>
+            <span>Launcher card layout</span>
             <select id="card-layout">
               <option value="horizontal">Horizontal rows</option>
               <option value="vertical">Vertical grid</option>
             </select>
           </label>
+          <label class="checkbox-field">
+            <input id="launch-on-startup" type="checkbox" />
+            <span>Launch on startup</span>
+          </label>
+          <label class="checkbox-field">
+            <input id="minimize-to-tray" type="checkbox" />
+            <span>Minimize to tray</span>
+          </label>
+          <label class="checkbox-field">
+            <input id="advanced-customization" type="checkbox" />
+            <span>Advanced customization</span>
+          </label>
           <div class="settings-actions">
+            <button id="import-font" class="secondary" type="button">Import Font</button>
+            <button id="reset-font" class="secondary" type="button">Reset Font</button>
             <button id="restart-app" class="secondary" type="button">Restart App</button>
           </div>
         </div>
@@ -90,6 +107,11 @@
             </label>
 
             <label class="field">
+              <span>Tags</span>
+              <input id="app-tags" type="text" placeholder="tools, work" />
+            </label>
+
+            <label class="field">
               <span>Fallback icon text</span>
               <input id="app-icon" type="text" maxlength="3" placeholder="AP" />
             </label>
@@ -115,6 +137,11 @@
               <button id="browse-target" class="secondary" type="button">Browse</button>
             </div>
 
+            <label id="run-as-admin-field" class="checkbox-field wide-field">
+              <input id="app-run-as-admin" type="checkbox" />
+              <span>Run as administrator</span>
+            </label>
+
             <div id="command-fields" class="command-fields wide-field hidden">
               <label class="field">
                 <span>Args (one per line)</span>
@@ -124,7 +151,7 @@
               <div class="target-row">
                 <label class="field">
                   <span>Working directory</span>
-                  <input id="app-cwd" type="text" placeholder="C:\Path\To\WorkingDirectory" />
+                  <input id="app-cwd" type="text" placeholder="C:\Path\To\Project" />
                 </label>
                 <button id="browse-cwd" class="secondary" type="button">Browse</button>
               </div>
@@ -156,6 +183,22 @@
           Add `.json` files in `/Home/Confg`. Use Settings to switch the whole launcher between horizontal and vertical.
         </div>
 
+        <div class="launcher-tools">
+          <label class="field search-field">
+            <span>Search apps</span>
+            <input id="app-search" type="search" placeholder="Search name, group, kind, path, or description" autocomplete="off" />
+          </label>
+          <label class="field tag-filter-field">
+            <span>Tag</span>
+            <select id="tag-filter">
+              <option value="">All tags</option>
+            </select>
+          </label>
+          <button id="clear-search" class="secondary" type="button">Clear Search</button>
+        </div>
+
+        <div id="quick-groups" class="quick-groups"></div>
+
         <div id="launcher-groups" class="launcher-groups"></div>
 
         <div id="launcher-empty" class="empty-state hidden">
@@ -174,6 +217,7 @@
           </div>
           <div class="actions">
             <button id="back-to-launcher" class="primary" type="button">Back to Apps</button>
+            <button id="toggle-advanced-editors" class="secondary" type="button">Advanced Editors</button>
           </div>
         </div>
 
@@ -242,10 +286,124 @@
             <button id="reset-theme" class="secondary danger-button" type="button">Reset Colors</button>
           </div>
         </div>
+
+      </section>
+
+      <section id="advanced-editors-view" class="panel app-view advanced-editors-view hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Advanced Editors</h2>
+            <p class="config-path">Custom CSS, HTML, and JavaScript editors. Enable Advanced customization in Settings to unlock this view.</p>
+          </div>
+          <div class="actions">
+            <button id="advanced-back-to-launcher" class="primary" type="button">Back to Apps</button>
+            <button id="advanced-back-to-customize" class="secondary" type="button">Customize</button>
+            <button id="popout-all-editors" class="secondary" type="button">Pop Out All</button>
+          </div>
+        </div>
+
+        <div id="advanced-locked" class="empty-state hidden">
+          <strong>Advanced customization is locked.</strong>
+          <p>Open Settings and enable Advanced customization to edit embedded CSS, HTML, and JavaScript.</p>
+        </div>
+
+        <div id="advanced-editors-grid" class="advanced-editors-grid">
+        <aside class="custom-effect-panel" aria-label="Custom effect editor">
+          <div>
+            <h3>Custom Effect</h3>
+            <p>Write CSS here or import a `.css` file. Autosaves while you type.</p>
+          </div>
+
+          <label class="checkbox-field">
+            <input id="custom-effect-enabled" type="checkbox" />
+            <span>Enable custom effect</span>
+          </label>
+
+          <label class="field">
+            <span>Effect CSS</span>
+            <div class="code-editor-shell">
+              <pre id="custom-effect-lines" class="line-numbers" aria-hidden="true">1</pre>
+              <pre id="custom-effect-highlight" class="code-highlight language-css" aria-hidden="true"></pre>
+              <textarea id="custom-effect-css" rows="10" spellcheck="false" wrap="soft" placeholder="body::after {&#10;  content: &quot;&quot;;&#10;  position: fixed;&#10;  inset: 0;&#10;  pointer-events: none;&#10;  background: radial-gradient(circle at center, transparent, rgba(122, 162, 255, 0.18));&#10;}"></textarea>
+            </div>
+          </label>
+
+          <div class="form-actions">
+            <button id="import-effect" class="secondary" type="button">Import Effect File</button>
+            <button id="popout-effect" class="secondary" type="button">Pop Out</button>
+            <button id="apply-custom-effect" class="primary" type="button">Apply Effect</button>
+            <button id="clear-custom-effect" class="secondary danger-button" type="button">Clear Effect</button>
+          </div>
+        </aside>
+
+        <aside id="custom-code-panel" class="custom-code-panel" aria-label="Advanced custom HTML and JavaScript editor">
+          <div>
+            <h3>Advanced Embed</h3>
+            <p>Custom HTML and JavaScript run inside this launcher. Keep this enabled only for code you trust.</p>
+          </div>
+
+          <label class="checkbox-field">
+            <input id="custom-html-enabled" type="checkbox" />
+            <span>Enable embedded HTML</span>
+          </label>
+
+          <label class="field">
+            <span>Embedded HTML</span>
+            <div class="code-editor-shell">
+              <pre id="custom-html-lines" class="line-numbers" aria-hidden="true">1</pre>
+              <pre id="custom-html-highlight" class="code-highlight language-html" aria-hidden="true"></pre>
+              <textarea id="custom-html-code" rows="7" spellcheck="false" wrap="soft" placeholder="<div class=&quot;my-widget&quot;>Custom launcher note</div>"></textarea>
+            </div>
+          </label>
+
+          <div class="form-actions">
+            <button id="import-html" class="secondary" type="button">Import HTML</button>
+            <button id="popout-html" class="secondary" type="button">Pop Out</button>
+          </div>
+
+          <label class="checkbox-field">
+            <input id="custom-js-enabled" type="checkbox" />
+            <span>Enable embedded JavaScript</span>
+          </label>
+
+          <label class="field">
+            <span>Embedded JavaScript</span>
+            <div class="code-editor-shell">
+              <pre id="custom-js-lines" class="line-numbers" aria-hidden="true">1</pre>
+              <pre id="custom-js-highlight" class="code-highlight language-js" aria-hidden="true"></pre>
+              <textarea id="custom-js-code" rows="7" spellcheck="false" wrap="soft" placeholder="document.body.classList.add('my-custom-mode');"></textarea>
+            </div>
+          </label>
+
+          <div class="form-actions">
+            <button id="import-js" class="secondary" type="button">Import JS</button>
+            <button id="popout-js" class="secondary" type="button">Pop Out</button>
+            <button id="apply-custom-code" class="primary" type="button">Apply Embed</button>
+            <button id="clear-custom-code" class="secondary danger-button" type="button">Clear Embed</button>
+          </div>
+        </aside>
+        </div>
       </section>
 
       <footer id="status-bar" class="status-bar idle">Ready.</footer>
     </main>
+
+    <div id="custom-html-root" class="custom-html-root" aria-live="polite"></div>
+
+    <div id="confirm-modal" class="modal-backdrop hidden" role="presentation">
+      <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+        <div class="confirm-icon" aria-hidden="true">!</div>
+        <div class="confirm-content">
+          <h2 id="confirm-title">Confirm</h2>
+          <p id="confirm-message"></p>
+          <pre id="confirm-detail" class="confirm-detail hidden"></pre>
+          <div class="confirm-actions">
+            <button id="confirm-cancel" class="secondary" type="button">Cancel</button>
+            <button id="confirm-ok" class="primary" type="button">Continue</button>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <script src="./renderer.js"></script>
   </body>

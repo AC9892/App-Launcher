@@ -5,6 +5,7 @@ const { pathToFileURL } = require("node:url");
 const CONFIG_DIR_NAME = "Confg";
 const DEFAULT_CONFIG_FILE_NAME = "apps.json";
 const DEFAULT_GUIDE_FILE_NAME = "README.md";
+const SAMPLE_CONFIG_FILE_NAME = "apps.sample.json";
 
 function getLauncherPaths(homeRoot) {
   const root = path.resolve(homeRoot);
@@ -14,7 +15,8 @@ function getLauncherPaths(homeRoot) {
     homeRoot: root,
     configDir,
     defaultConfigPath: path.join(configDir, DEFAULT_CONFIG_FILE_NAME),
-    guidePath: path.join(configDir, DEFAULT_GUIDE_FILE_NAME)
+    guidePath: path.join(configDir, DEFAULT_GUIDE_FILE_NAME),
+    sampleConfigPath: path.join(configDir, SAMPLE_CONFIG_FILE_NAME)
   };
 }
 
@@ -37,6 +39,8 @@ Use the **Edit** button on an existing launcher card to update the JSON entry it
 
 The original manual method still works: add one or more \`.json\` files to this folder.
 
+See \`apps.sample.json\` for a clean example that avoids local machine-specific paths.
+
 Each file can be either:
 
 \`\`\`json
@@ -46,14 +50,14 @@ Each file can be either:
       "name": "Notepad",
       "kind": "executable",
       "target": "C:\\\\Windows\\\\System32\\\\notepad.exe",
-      "iconPath": "C:\\\\Users\\\\path\\\\Pictures\\\\notepad.png",
+      "iconPath": "C:\\\\Path\\\\To\\\\notepad.png",
       "description": "Open Notepad"
     },
     {
-      "name": "Downloads",
+      "name": "Example Folder",
       "kind": "folder",
-      "target": "C:\\\\Users\\\\path\\\\Downloads",
-      "description": "Open Downloads"
+      "target": "..",
+      "description": "Open a folder"
     },
     {
       "name": "Workspace Root",
@@ -62,7 +66,7 @@ Each file can be either:
       "description": "Open the Home app folder"
     },
     {
-      "name": "ANTC Studio",
+      "name": "Example Electron App",
       "kind": "command",
       "command": "C:\\\\Program Files\\\\nodejs\\\\node.exe",
       "args": [
@@ -71,7 +75,7 @@ Each file can be either:
       ],
       "cwd": "..\\\\..\\\\App",
       "consoleWindow": "hidden",
-      "description": "Open the ANTC desktop app"
+      "description": "Open an Electron app"
     },
     {
       "name": "OpenAI",
@@ -110,6 +114,40 @@ For \`kind: "command"\`:
 `;
 }
 
+function getSampleAppsFile() {
+  return JSON.stringify(
+    {
+      apps: [
+        {
+          name: "Example Website",
+          kind: "url",
+          target: "https://example.com",
+          group: "Examples",
+          description: "Open a website"
+        },
+        {
+          name: "Example Folder",
+          kind: "folder",
+          target: "..",
+          group: "Examples",
+          description: "Open the Home app folder"
+        },
+        {
+          name: "Example Command",
+          kind: "command",
+          command: "cmd.exe",
+          args: ["/d", "/c", "echo Hello from Home Launcher"],
+          keepOpen: true,
+          group: "Examples",
+          description: "Run a visible sample command"
+        }
+      ]
+    },
+    null,
+    2
+  );
+}
+
 function ensureLauncherConfig(homeRoot) {
   const paths = getLauncherPaths(homeRoot);
   fs.mkdirSync(paths.configDir, { recursive: true });
@@ -120,6 +158,10 @@ function ensureLauncherConfig(homeRoot) {
 
   if (!fs.existsSync(paths.guidePath)) {
     fs.writeFileSync(paths.guidePath, getDefaultGuide(), "utf8");
+  }
+
+  if (!fs.existsSync(paths.sampleConfigPath)) {
+    fs.writeFileSync(paths.sampleConfigPath, `${getSampleAppsFile()}\n`, "utf8");
   }
 
   return paths;
@@ -154,6 +196,15 @@ function writeWritableAppsConfig(configFilePath, config) {
   fs.writeFileSync(configFilePath, `${JSON.stringify(writableData, null, 2)}\n`, "utf8");
 }
 
+function getBackupTimestamp(date = new Date()) {
+  return date
+    .toISOString()
+    .replaceAll("-", "")
+    .replace("T", "-")
+    .replaceAll(":", "")
+    .slice(0, 15);
+}
+
 function cleanOptionalText(value) {
   return String(value ?? "").trim();
 }
@@ -164,6 +215,17 @@ function setOptionalField(target, key, value) {
   if (text) {
     target[key] = text;
   }
+}
+
+function normalizeTags(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanOptionalText(item)).filter(Boolean);
+  }
+
+  return cleanOptionalText(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function normalizeWritableArgs(value, entryName) {
@@ -200,6 +262,15 @@ function buildWritableLauncherEntry(entry) {
   setOptionalField(writableEntry, "icon", entry.icon);
   setOptionalField(writableEntry, "iconPath", entry.iconPath);
   setOptionalField(writableEntry, "accent", entry.accent);
+  const tags = normalizeTags(entry.tags);
+
+  if (tags.length > 0) {
+    writableEntry.tags = tags;
+  }
+
+  if (entry.runAsAdmin === true) {
+    writableEntry.runAsAdmin = true;
+  }
 
   if (kind === "command") {
     const command = cleanOptionalText(entry.command ?? entry.target);
@@ -244,11 +315,52 @@ function buildWritableLauncherEntry(entry) {
   return writableEntry;
 }
 
+function normalizeDuplicateText(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function getWritableLaunchKey(entry) {
+  if (entry.kind === "command") {
+    return normalizeDuplicateText([
+      entry.kind,
+      entry.command,
+      ...(Array.isArray(entry.args) ? entry.args : []),
+      entry.cwd ?? ""
+    ].join("\u0000"));
+  }
+
+  return normalizeDuplicateText(`${entry.kind}\u0000${entry.target ?? ""}`);
+}
+
+function assertNoDuplicateLauncherEntry(apps, writableEntry, sourceIndex = -1) {
+  const nextName = normalizeDuplicateText(writableEntry.name);
+  const nextLaunchKey = getWritableLaunchKey(writableEntry);
+
+  apps.forEach((existingEntry, index) => {
+    if (index === sourceIndex || !existingEntry || existingEntry.enabled === false) {
+      return;
+    }
+
+    const existing = buildWritableLauncherEntry(existingEntry);
+    const existingName = normalizeDuplicateText(existing.name);
+    const existingLaunchKey = getWritableLaunchKey(existing);
+
+    if (existingName === nextName) {
+      throw new Error(`A launcher entry named "${writableEntry.name}" already exists.`);
+    }
+
+    if (existingLaunchKey === nextLaunchKey) {
+      throw new Error(`A launcher entry already uses the same ${writableEntry.kind} target.`);
+    }
+  });
+}
+
 function appendLauncherEntry(homeRoot, entry) {
   const paths = ensureLauncherConfig(homeRoot);
   const config = readWritableAppsConfig(paths.defaultConfigPath);
   const writableEntry = buildWritableLauncherEntry(entry);
 
+  assertNoDuplicateLauncherEntry(config.apps, writableEntry);
   config.apps.push(writableEntry);
   writeWritableAppsConfig(paths.defaultConfigPath, config);
 
@@ -296,6 +408,7 @@ function updateLauncherEntry(homeRoot, payload) {
   }
 
   const writableEntry = buildWritableLauncherEntry(payload);
+  assertNoDuplicateLauncherEntry(config.apps, writableEntry, sourceIndex);
   config.apps[sourceIndex] = writableEntry;
   writeWritableAppsConfig(configPath, config);
 
@@ -304,6 +417,47 @@ function updateLauncherEntry(homeRoot, payload) {
     entry: writableEntry,
     sourceFile: path.basename(configPath),
     sourceIndex
+  };
+}
+
+function reorderLauncherEntries(homeRoot, orderedIds) {
+  const paths = ensureLauncherConfig(homeRoot);
+  const config = readWritableAppsConfig(paths.defaultConfigPath);
+  const order = new Map(
+    (Array.isArray(orderedIds) ? orderedIds : []).map((id, index) => [String(id), index])
+  );
+
+  if (order.size === 0) {
+    throw new Error("No launcher order was provided.");
+  }
+
+  config.apps = config.apps
+    .map((entry, index) => ({
+      entry,
+      index,
+      id: String(entry.id ?? `apps-${index + 1}`)
+    }))
+    .sort((left, right) => {
+      const leftOrder = order.has(left.id) ? order.get(left.id) : Number.MAX_SAFE_INTEGER;
+      const rightOrder = order.has(right.id) ? order.get(right.id) : Number.MAX_SAFE_INTEGER;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return left.index - right.index;
+    })
+    .map((item) => item.entry);
+
+  if (!config.isArrayRoot) {
+    config.data.apps = config.apps;
+  }
+
+  writeWritableAppsConfig(paths.defaultConfigPath, config);
+
+  return {
+    configPath: paths.defaultConfigPath,
+    count: config.apps.length
   };
 }
 
@@ -425,7 +579,9 @@ function normalizeLauncherEntry(entry, configFilePath, index) {
     icon: buildLauncherIcon(name, entry.icon),
     ...buildIconPathFields(entry, configFilePath),
     group: String(entry.group ?? "Apps").trim() || "Apps",
+    tags: normalizeTags(entry.tags),
     accent: String(entry.accent ?? "").trim(),
+    runAsAdmin: entry.runAsAdmin === true,
     sourceFile: path.basename(configFilePath),
     sourceIndex: index
   };
@@ -509,9 +665,163 @@ function normalizeCommandEntry(entry, configFilePath, index, name) {
     icon: buildLauncherIcon(name, entry.icon),
     ...buildIconPathFields(entry, configFilePath),
     group: String(entry.group ?? "Apps").trim() || "Apps",
+    tags: normalizeTags(entry.tags),
     accent: String(entry.accent ?? "").trim(),
+    runAsAdmin: entry.runAsAdmin === true,
     sourceFile: path.basename(configFilePath),
     sourceIndex: index
+  };
+}
+
+function getMissingPathWarning(entry) {
+  if (entry.kind !== "executable" && entry.kind !== "file" && entry.kind !== "folder") {
+    return "";
+  }
+
+  if (!fs.existsSync(entry.target)) {
+    return `Entry "${entry.name}" points to a missing ${entry.kind} path: ${entry.target}`;
+  }
+
+  try {
+    const stats = fs.statSync(entry.target);
+
+    if (entry.kind === "folder" && !stats.isDirectory()) {
+      return `Entry "${entry.name}" expects a folder, but this path is not a folder: ${entry.target}`;
+    }
+
+    if ((entry.kind === "file" || entry.kind === "executable") && !stats.isFile()) {
+      return `Entry "${entry.name}" expects a file, but this path is not a file: ${entry.target}`;
+    }
+  } catch (error) {
+    return `Entry "${entry.name}" path could not be checked: ${error.message}`;
+  }
+
+  return "";
+}
+
+function importLauncherConfig(homeRoot, sourcePath) {
+  const paths = ensureLauncherConfig(homeRoot);
+  const sourceConfigPath = path.resolve(String(sourcePath ?? ""));
+
+  if (!sourceConfigPath || path.extname(sourceConfigPath).toLowerCase() !== ".json") {
+    throw new Error("Choose a JSON launcher config file to import.");
+  }
+
+  if (!fs.existsSync(sourceConfigPath)) {
+    throw new Error(`Import file does not exist: ${sourceConfigPath}`);
+  }
+
+  const sourceConfig = readWritableAppsConfig(sourceConfigPath);
+  sourceConfig.apps = sourceConfig.apps.map((entry) => buildWritableLauncherEntry(entry));
+
+  if (!sourceConfig.isArrayRoot) {
+    sourceConfig.data.apps = sourceConfig.apps;
+  }
+
+  const seen = [];
+
+  sourceConfig.apps.forEach((entry) => {
+    assertNoDuplicateLauncherEntry(seen, entry);
+    seen.push(entry);
+  });
+
+  const backupPath = path.join(paths.configDir, `apps.backup-${getBackupTimestamp()}.json.bak`);
+  fs.copyFileSync(paths.defaultConfigPath, backupPath);
+  writeWritableAppsConfig(paths.defaultConfigPath, sourceConfig);
+
+  return {
+    importedPath: sourceConfigPath,
+    backupPath,
+    configPath: paths.defaultConfigPath,
+    count: sourceConfig.apps.length
+  };
+}
+
+function exportLauncherConfig(homeRoot, destinationPath) {
+  const paths = ensureLauncherConfig(homeRoot);
+  const targetPath = path.resolve(String(destinationPath ?? ""));
+
+  if (!targetPath || path.extname(targetPath).toLowerCase() !== ".json") {
+    throw new Error("Choose a JSON file path for the launcher config export.");
+  }
+
+  fs.copyFileSync(paths.defaultConfigPath, targetPath);
+
+  return {
+    configPath: paths.defaultConfigPath,
+    exportPath: targetPath
+  };
+}
+
+function isScannableLauncherFile(filePath) {
+  return [".exe", ".lnk", ".url", ".bat", ".cmd"].includes(path.extname(filePath).toLowerCase());
+}
+
+function collectScannableLauncherFiles(folderPath, depth = 0) {
+  if (depth > 2) {
+    return [];
+  }
+
+  const found = [];
+
+  for (const item of fs.readdirSync(folderPath, { withFileTypes: true })) {
+    const itemPath = path.join(folderPath, item.name);
+
+    if (item.isDirectory()) {
+      found.push(...collectScannableLauncherFiles(itemPath, depth + 1));
+      continue;
+    }
+
+    if (item.isFile() && isScannableLauncherFile(itemPath)) {
+      found.push(itemPath);
+    }
+  }
+
+  return found;
+}
+
+function scanLauncherFolder(homeRoot, folderPath) {
+  const paths = ensureLauncherConfig(homeRoot);
+  const scanRoot = path.resolve(String(folderPath ?? ""));
+
+  if (!scanRoot || !fs.existsSync(scanRoot) || !fs.statSync(scanRoot).isDirectory()) {
+    throw new Error("Choose an existing folder to scan.");
+  }
+
+  const config = readWritableAppsConfig(paths.defaultConfigPath);
+  const files = collectScannableLauncherFiles(scanRoot);
+  const added = [];
+  let skipped = 0;
+
+  for (const filePath of files) {
+    const extension = path.extname(filePath).toLowerCase();
+    const entry = buildWritableLauncherEntry({
+      name: path.basename(filePath, extension),
+      kind: extension === ".exe" ? "executable" : "file",
+      target: filePath,
+      group: "Scanned",
+      tags: ["scanned"],
+      description: `Scanned from ${scanRoot}`
+    });
+
+    try {
+      assertNoDuplicateLauncherEntry(config.apps, entry);
+      config.apps.push(entry);
+      added.push(entry);
+    } catch {
+      skipped += 1;
+    }
+  }
+
+  if (added.length > 0) {
+    writeWritableAppsConfig(paths.defaultConfigPath, config);
+  }
+
+  return {
+    folderPath: scanRoot,
+    added,
+    skipped,
+    count: config.apps.length
   };
 }
 
@@ -520,9 +830,11 @@ function loadLauncherEntries(homeRoot) {
   const files = fs
     .readdirSync(paths.configDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && path.extname(entry.name).toLowerCase() === ".json")
+    .filter((entry) => entry.name.toLowerCase() !== SAMPLE_CONFIG_FILE_NAME)
     .map((entry) => path.join(paths.configDir, entry.name))
     .sort((left, right) => left.localeCompare(right));
   const errors = [];
+  const warnings = [];
   const entries = [];
 
   for (const configFilePath of files) {
@@ -535,6 +847,13 @@ function loadLauncherEntries(homeRoot) {
           const normalizedEntry = normalizeLauncherEntry(entry, configFilePath, index);
 
           if (normalizedEntry) {
+            const warning = getMissingPathWarning(normalizedEntry);
+
+            if (warning) {
+              normalizedEntry.warnings = [warning];
+              warnings.push(`${path.basename(configFilePath)}: ${warning}`);
+            }
+
             entries.push(normalizedEntry);
           }
         } catch (error) {
@@ -547,13 +866,13 @@ function loadLauncherEntries(homeRoot) {
   }
 
   entries.sort((left, right) => {
-    const groupCompare = left.group.localeCompare(right.group);
+    const fileCompare = left.sourceFile.localeCompare(right.sourceFile);
 
-    if (groupCompare !== 0) {
-      return groupCompare;
+    if (fileCompare !== 0) {
+      return fileCompare;
     }
 
-    return left.name.localeCompare(right.name);
+    return left.sourceIndex - right.sourceIndex;
   });
 
   return {
@@ -561,15 +880,20 @@ function loadLauncherEntries(homeRoot) {
     configFiles: files.map((filePath) => path.basename(filePath)),
     guidePath: paths.guidePath,
     entries,
-    errors
+    errors,
+    warnings
   };
 }
 
 module.exports = {
   appendLauncherEntry,
   ensureLauncherConfig,
+  exportLauncherConfig,
   getLauncherPaths,
+  importLauncherConfig,
   loadLauncherEntries,
   normalizeLauncherKind,
+  reorderLauncherEntries,
+  scanLauncherFolder,
   updateLauncherEntry
 };
