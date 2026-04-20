@@ -1,6 +1,6 @@
-# Home Launcher
+# App Launcher
 
-This is a standalone Electron app launcher. It is separate from the ANTC app under `/App`.
+
 
 ## Run
 
@@ -27,7 +27,7 @@ Launcher entries are loaded from:
 See `/Home/Confg/README.md` for the file format.
 Use `/Home/Confg/apps.sample.json` as a clean example config.
 
-Supported launcher kinds:
+Supported launcher kinds: 
 
 - `executable`
 - `file`
