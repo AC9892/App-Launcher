@@ -1,6 +1,6 @@
-# Home Launcher Config
+# App Launcher Config
 
-Use the Home launcher app's **Add App** button for the easiest setup. It writes new entries to `apps.json` in this folder.
+Use the App Launcher app's **Add App** button for the easiest setup. It writes new entries to `apps.json` in this folder.
 
 Use the **Edit** button on an existing launcher card to update the JSON entry it came from.
 
@@ -26,7 +26,7 @@ Each file can be either:
       "name": "Project Folder",
       "kind": "folder",
       "target": "..",
-      "description": "Open the Home app folder"
+      "description": "Open the app folder"
     },
     {
       "name": "Example Electron App",
@@ -36,7 +36,7 @@ Each file can be either:
         "node_modules\\electron\\cli.js",
         "."
       ],
-      "cwd": "..\\..\\ExampleApp",
+      "cwd": "..\\..\\App",
       "consoleWindow": "hidden",
       "description": "Open an Electron app"
     },
@@ -58,14 +58,14 @@ Supported `kind` values:
 - `url`
 - `command`
 
-Relative `file`, `folder`, and `command.cwd` targets are resolved from this `/Home/Confg` folder.
+Relative `file`, `folder`, and `command.cwd` targets are resolved from this `Confg` folder.
 
 Optional icon fields:
 
 - `iconPath` points to an image file, such as `.ico`, `.png`, `.jpg`, `.webp`, `.gif`, or `.svg`.
 - `icon` is fallback text shown when no `iconPath` is set or the icon image cannot load.
 - The app editor's Icon image picker writes `iconPath` and overrides the default generated initials.
-- If `iconPath` is empty, Home tries to use the target file, folder, executable, or absolute command's system icon automatically.
+- If `iconPath` is empty, App Launcher tries to use the target file, folder, executable, or absolute command's system icon automatically.
 
 Optional organization fields:
 

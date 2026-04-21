@@ -1,9 +1,9 @@
 {
   "name": "antc_home_launcher",
-  "version": "1.0.0",
+  "version": "1.3.1",
   "private": true,
   "description": "Standalone launcher app for external tools and apps",
-  "author": "Home Launcher Contributors",
+  "author": "App Launcher Contributors",
   "main": "./main.js",
   "scripts": {
     "build:installer": "electron-builder --win nsis",
@@ -12,13 +12,15 @@
     "test": "node ./test/launcher.test.js"
   },
   "build": {
-    "appId": "com.homelauncher.app",
-    "productName": "Home Launcher",
+    "appId": "com.applauncher.app",
+    "productName": "App Launcher",
+    "asar": false,
     "directories": {
       "output": "dist-installer"
     },
     "files": [
       "Confg/**/*",
+      "ADV_EDITOR_CLASSES.md",
       "ADV_MODDING_TUTORIAL.md",
       "index.html",
       "main.js",
@@ -39,7 +41,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Home Launcher"
+      "shortcutName": "App Launcher"
     }
   },
   "engines": {

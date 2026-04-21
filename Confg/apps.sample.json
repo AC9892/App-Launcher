@@ -21,7 +21,7 @@
       "args": [
         "/d",
         "/c",
-        "echo Hello from Home Launcher"
+        "echo Hello from App Launcher"
       ],
       "keepOpen": true,
       "group": "Examples",

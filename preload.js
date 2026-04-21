@@ -12,8 +12,10 @@ async function invokeHandled(channel, payload) {
 
 contextBridge.exposeInMainWorld("homeLauncher", {
   load: () => invokeHandled("launcher:load", {}),
+  loadIcons: (entries) => invokeHandled("launcher:load-icons", { entries }),
   addApp: (payload) => invokeHandled("launcher:add-app", payload),
   updateApp: (payload) => invokeHandled("launcher:update-app", payload),
+  deleteApp: (payload) => invokeHandled("launcher:delete-app", payload),
   chooseTarget: (payload) => invokeHandled("launcher:choose-target", payload),
   exportConfig: () => invokeHandled("launcher:export-config", {}),
   importConfig: () => invokeHandled("launcher:import-config", {}),
@@ -27,6 +29,14 @@ contextBridge.exposeInMainWorld("homeLauncher", {
   openTarget: (payload) => invokeHandled("launcher:open-target", payload),
   setLaunchOnStartup: (enabled) => invokeHandled("app:set-launch-on-startup", enabled),
   setTray: (enabled) => invokeHandled("app:set-tray", enabled),
+  setCloseToTray: (enabled) => invokeHandled("app:set-close-to-tray", enabled),
+  hideToTray: () => invokeHandled("app:hide-to-tray", {}),
+  onRestoredFromTray: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on("app:restored-from-tray", listener);
+    return () => ipcRenderer.removeListener("app:restored-from-tray", listener);
+  },
   setWindowOrientation: (orientation) => invokeHandled("window:set-orientation", orientation),
+  getRuntimeInfo: () => invokeHandled("app:get-runtime-info", {}),
   restart: () => invokeHandled("app:restart", {})
 });

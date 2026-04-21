@@ -64,6 +64,7 @@ const state = {
   favorites: new Set(),
   launchStats: {},
   draggedEntryId: "",
+  iconLoadToken: 0,
   theme: { ...DEFAULT_THEME },
   customTheme: { ...DEFAULT_THEME, preset: "custom" },
   customEffect: {
@@ -84,13 +85,18 @@ const state = {
     cardLayout: "horizontal",
     launchOnStartup: false,
     minimizeToTray: false,
+    closeToTray: true,
+    showConfigPath: true,
+    highlightPrimaryButtons: true,
     advancedCustomization: false,
+    deleteConfirmation: true,
     customFont: null
   }
 };
 
 const elements = {
   launcherView: document.querySelector("#launcher-view"),
+  advancedSettingsView: document.querySelector("#advanced-settings-view"),
   customizeView: document.querySelector("#customize-view"),
   advancedEditorsView: document.querySelector("#advanced-editors-view"),
   configPath: document.querySelector("#config-path"),
@@ -167,8 +173,14 @@ const elements = {
   saveApp: document.querySelector("#save-app"),
   clearAddApp: document.querySelector("#clear-add-app"),
   cancelEditApp: document.querySelector("#cancel-edit-app"),
+  deleteApp: document.querySelector("#delete-app"),
   toggleSettings: document.querySelector("#toggle-settings"),
+  toggleAdvancedSettingsCompact: document.querySelector("#toggle-advanced-settings-compact"),
+  advancedSettingsBackToLauncher: document.querySelector("#advanced-settings-back-to-launcher"),
+  advancedSettingsOpenCustomize: document.querySelector("#advanced-settings-open-customize"),
+  advancedSettingsOpenEditors: document.querySelector("#advanced-settings-open-editors"),
   restartApp: document.querySelector("#restart-app"),
+  hideToTray: document.querySelector("#hide-to-tray"),
   importFont: document.querySelector("#import-font"),
   resetFont: document.querySelector("#reset-font"),
   settingsPanel: document.querySelector("#settings-panel"),
@@ -176,7 +188,11 @@ const elements = {
   cardLayout: document.querySelector("#card-layout"),
   launchOnStartup: document.querySelector("#launch-on-startup"),
   minimizeToTray: document.querySelector("#minimize-to-tray"),
+  closeToTray: document.querySelector("#close-to-tray"),
+  showConfigPath: document.querySelector("#show-config-path"),
+  highlightPrimaryButtons: document.querySelector("#highlight-primary-buttons"),
   advancedCustomization: document.querySelector("#advanced-customization"),
+  deleteConfirmation: document.querySelector("#delete-confirmation"),
   appSearch: document.querySelector("#app-search"),
   tagFilter: document.querySelector("#tag-filter"),
   clearSearch: document.querySelector("#clear-search"),
@@ -213,6 +229,43 @@ function renderResult(element, lines) {
 function hideResult(element) {
   element.innerHTML = "";
   element.classList.add("hidden");
+}
+
+async function resetInstalledUiProfileOnce() {
+  if (!window.homeLauncher?.getRuntimeInfo) {
+    return;
+  }
+
+  try {
+    const runtimeInfo = await window.homeLauncher.getRuntimeInfo();
+
+    if (!runtimeInfo?.packaged || runtimeInfo?.portable) {
+      return;
+    }
+
+    const resetVersion = `installed-ui-reset-${runtimeInfo.version ?? "1.3.1"}`;
+    const markerKey = "appLauncherInstalledUiResetVersion";
+
+    if (window.localStorage.getItem(markerKey) === resetVersion) {
+      return;
+    }
+
+    for (const key of [
+      "homeLauncherSettings",
+      "homeLauncherTheme",
+      "homeLauncherCustomTheme",
+      "homeLauncherCustomEffect",
+      "homeLauncherCustomCode",
+      "homeLauncherFavorites",
+      "homeLauncherLaunchStats"
+    ]) {
+      window.localStorage.removeItem(key);
+    }
+
+    window.localStorage.setItem(markerKey, resetVersion);
+  } catch (error) {
+    console.warn("Installed UI profile reset skipped.", error);
+  }
 }
 
 function confirmAction({
@@ -268,14 +321,24 @@ function confirmAction({
 }
 
 function showLauncherView() {
+  elements.advancedSettingsView.classList.add("hidden");
   elements.customizeView.classList.add("hidden");
   elements.advancedEditorsView.classList.add("hidden");
   elements.launcherView.classList.remove("hidden");
   setStatus("App Launcher view open.", "idle");
 }
 
+function showAdvancedSettingsView() {
+  elements.launcherView.classList.add("hidden");
+  elements.customizeView.classList.add("hidden");
+  elements.advancedEditorsView.classList.add("hidden");
+  elements.advancedSettingsView.classList.remove("hidden");
+  setStatus("Advanced Settings view open.", "idle");
+}
+
 function showCustomizeView() {
   elements.launcherView.classList.add("hidden");
+  elements.advancedSettingsView.classList.add("hidden");
   elements.advancedEditorsView.classList.add("hidden");
   elements.customizeView.classList.remove("hidden");
   setStatus("Customize UI view open.", "idle");
@@ -283,6 +346,7 @@ function showCustomizeView() {
 
 function showAdvancedEditorsView() {
   elements.launcherView.classList.add("hidden");
+  elements.advancedSettingsView.classList.add("hidden");
   elements.customizeView.classList.add("hidden");
   elements.advancedEditorsView.classList.remove("hidden");
   updateAdvancedEditorLockState();
@@ -348,6 +412,10 @@ function getPayloadLaunchKey(payload) {
 
 function getEntryKey(entry) {
   return getPayloadLaunchKey(entry);
+}
+
+function getEntryIdentity(entry) {
+  return `${entry.sourceFile ?? ""}\u0000${entry.sourceIndex ?? ""}\u0000${entry.id ?? ""}`;
 }
 
 function findDuplicateApp(payload) {
@@ -822,6 +890,7 @@ function updateAddAppForm() {
   elements.saveApp.textContent = isEditing ? "Update App" : "Save App";
   elements.clearAddApp.textContent = isEditing ? "Reset Fields" : "Clear";
   elements.cancelEditApp.classList.toggle("hidden", !isEditing);
+  elements.deleteApp.classList.toggle("hidden", !isEditing);
 }
 
 function clearAddAppForm({ keepEditMode = false } = {}) {
@@ -869,6 +938,112 @@ function buildAddAppPayload() {
   return payload;
 }
 
+function getLauncherScrollState() {
+  return {
+    windowX: window.scrollX,
+    windowY: window.scrollY,
+    launcherX: elements.launcherView.scrollLeft,
+    launcherY: elements.launcherView.scrollTop,
+    groups: Array.from(elements.launcherGroups.querySelectorAll(".launcher-grid")).map((grid) => grid.scrollLeft),
+    quickGroups: Array.from(elements.quickGroups.querySelectorAll(".launcher-grid")).map((grid) => grid.scrollLeft)
+  };
+}
+
+function restoreLauncherScrollState(scrollState) {
+  if (!scrollState) {
+    return;
+  }
+
+  const applyScrollState = () => {
+    Array.from(elements.launcherGroups.querySelectorAll(".launcher-grid")).forEach((grid, index) => {
+      grid.scrollLeft = scrollState.groups[index] ?? 0;
+    });
+    Array.from(elements.quickGroups.querySelectorAll(".launcher-grid")).forEach((grid, index) => {
+      grid.scrollLeft = scrollState.quickGroups[index] ?? 0;
+    });
+    elements.launcherView.scrollLeft = scrollState.launcherX ?? 0;
+    elements.launcherView.scrollTop = scrollState.launcherY ?? 0;
+    window.scrollTo(scrollState.windowX, scrollState.windowY);
+  };
+
+  requestAnimationFrame(() => {
+    applyScrollState();
+    requestAnimationFrame(applyScrollState);
+    window.setTimeout(applyScrollState, 75);
+  });
+}
+
+async function deleteEditingApp() {
+  const entry = state.editingEntry;
+  const scrollState = getLauncherScrollState();
+
+  if (!entry) {
+    setStatus("No app is selected for deletion.", "error");
+    return;
+  }
+
+  if (state.settings.deleteConfirmation) {
+    const confirmed = await confirmAction({
+      title: "Delete app?",
+      message: `Delete ${entry.name} from ${entry.sourceFile}?`,
+      detail: "This removes the launcher entry from its config file. It does not delete the actual app, file, or folder.",
+      confirmLabel: "Delete App"
+    });
+
+    if (!confirmed) {
+      setStatus("Delete canceled.", "idle");
+      return;
+    }
+  }
+
+  setStatus(`Deleting ${entry.name}...`, "busy");
+  const result = await window.homeLauncher.deleteApp({
+    sourceFile: entry.sourceFile,
+    sourceIndex: entry.sourceIndex
+  });
+
+  clearAddAppForm();
+  await loadLauncher(false);
+  restoreLauncherScrollState(scrollState);
+  setStatus(`Deleted ${result.entry.name ?? entry.name} from ${result.sourceFile}.`, "success");
+}
+
+async function deleteLauncherCard(entry) {
+  const scrollState = getLauncherScrollState();
+
+  if (state.settings.deleteConfirmation) {
+    const confirmed = await confirmAction({
+      title: "Delete app?",
+      message: `Delete ${entry.name} from ${entry.sourceFile}?`,
+      detail: "This removes the launcher entry from its config file. It does not delete the actual app, file, or folder.",
+      confirmLabel: "Delete App"
+    });
+
+    if (!confirmed) {
+      setStatus("Delete canceled.", "idle");
+      return;
+    }
+  }
+
+  setStatus(`Deleting ${entry.name}...`, "busy");
+  const result = await window.homeLauncher.deleteApp({
+    sourceFile: entry.sourceFile,
+    sourceIndex: entry.sourceIndex
+  });
+
+  if (
+    state.editingEntry &&
+    state.editingEntry.sourceFile === entry.sourceFile &&
+    state.editingEntry.sourceIndex === entry.sourceIndex
+  ) {
+    clearAddAppForm();
+  }
+
+  await loadLauncher(false);
+  restoreLauncherScrollState(scrollState);
+  setStatus(`Deleted ${result.entry.name ?? entry.name} from ${result.sourceFile}.`, "success");
+}
+
 function populateAddAppForm(entry, options = {}) {
   state.editingEntry = entry;
   elements.appName.value = entry.name ?? "";
@@ -902,24 +1077,45 @@ function loadSettings() {
     state.settings.appOrientation = normalizeOrientation(parsed.appOrientation ?? "vertical");
     state.settings.cardLayout = normalizeCardLayout(parsed.cardLayout ?? parsed.layoutMode);
     state.settings.launchOnStartup = parsed.launchOnStartup === true;
-    state.settings.minimizeToTray = parsed.minimizeToTray === true;
+    state.settings.minimizeToTray = false;
+    state.settings.closeToTray = parsed.closeToTray !== false;
+    state.settings.showConfigPath = parsed.showConfigPath !== false;
+    state.settings.highlightPrimaryButtons = parsed.highlightPrimaryButtons !== false;
     state.settings.advancedCustomization = parsed.advancedCustomization === true;
+    state.settings.deleteConfirmation = parsed.deleteConfirmation !== false;
     state.settings.customFont = parsed.customFont && typeof parsed.customFont === "object" ? parsed.customFont : null;
   } catch {
     state.settings.appOrientation = "vertical";
     state.settings.cardLayout = "horizontal";
     state.settings.launchOnStartup = false;
     state.settings.minimizeToTray = false;
+    state.settings.closeToTray = true;
+    state.settings.showConfigPath = true;
+    state.settings.highlightPrimaryButtons = true;
     state.settings.advancedCustomization = false;
+    state.settings.deleteConfirmation = true;
     state.settings.customFont = null;
   }
 }
 
 function saveSettings() {
-  window.localStorage.setItem("homeLauncherSettings", JSON.stringify(state.settings));
+  const persistedSettings = {
+    ...state.settings,
+    minimizeToTray: false
+  };
+  window.localStorage.setItem("homeLauncherSettings", JSON.stringify(persistedSettings));
 }
 
-function applySettings({ syncTray = false } = {}) {
+function updateConfigPathVisibility() {
+  const showPath = state.settings.showConfigPath === true;
+  elements.configPath.textContent = state.configDir || "";
+  elements.configPath.classList.toggle("config-path-hidden", !showPath);
+  elements.configPath.style.visibility = showPath ? "" : "hidden";
+  elements.configPath.style.userSelect = showPath ? "" : "none";
+  elements.configPath.style.pointerEvents = showPath ? "" : "none";
+}
+
+function applySettings({ syncTray = false, syncWindow = true } = {}) {
   const appOrientation = normalizeOrientation(state.settings.appOrientation);
   const cardLayout = normalizeCardLayout(state.settings.cardLayout);
   const effectiveCardLayout = appOrientation === "vertical" ? "vertical" : cardLayout;
@@ -929,7 +1125,11 @@ function applySettings({ syncTray = false } = {}) {
   elements.cardLayout.value = effectiveCardLayout;
   elements.launchOnStartup.checked = state.settings.launchOnStartup;
   elements.minimizeToTray.checked = state.settings.minimizeToTray;
+  elements.closeToTray.checked = state.settings.closeToTray;
+  elements.showConfigPath.checked = state.settings.showConfigPath;
+  elements.highlightPrimaryButtons.checked = state.settings.highlightPrimaryButtons;
   elements.advancedCustomization.checked = state.settings.advancedCustomization;
+  elements.deleteConfirmation.checked = state.settings.deleteConfirmation;
   elements.cardLayout.disabled = appOrientation === "vertical";
   elements.cardLayout.title =
     appOrientation === "vertical"
@@ -939,8 +1139,10 @@ function applySettings({ syncTray = false } = {}) {
   document.body.classList.toggle("app-horizontal", appOrientation === "horizontal");
   document.body.classList.toggle("cards-vertical", effectiveCardLayout === "vertical");
   document.body.classList.toggle("cards-horizontal", effectiveCardLayout === "horizontal");
+  document.body.classList.toggle("plain-primary-buttons", !state.settings.highlightPrimaryButtons);
+  updateConfigPathVisibility();
 
-  if (window.homeLauncher?.setWindowOrientation) {
+  if (syncWindow && window.homeLauncher?.setWindowOrientation) {
     window.homeLauncher.setWindowOrientation(appOrientation).catch((error) => {
       setStatus(error.message, "error");
     });
@@ -948,6 +1150,12 @@ function applySettings({ syncTray = false } = {}) {
 
   if (syncTray && window.homeLauncher?.setTray) {
     window.homeLauncher.setTray(state.settings.minimizeToTray).catch((error) => {
+      setStatus(error.message, "error");
+    });
+  }
+
+  if (window.homeLauncher?.setCloseToTray) {
+    window.homeLauncher.setCloseToTray(state.settings.closeToTray).catch((error) => {
       setStatus(error.message, "error");
     });
   }
@@ -1153,6 +1361,20 @@ function buildLauncherCard(entry) {
     setStatus(`Editing ${entry.name}.`, "idle");
   });
 
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "launcher-card-delete";
+  deleteButton.textContent = "Delete";
+  deleteButton.addEventListener("click", async (event) => {
+    event.stopPropagation();
+
+    try {
+      await deleteLauncherCard(entry);
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
   const favoriteButton = document.createElement("button");
   favoriteButton.type = "button";
   favoriteButton.className = "launcher-card-favorite";
@@ -1160,6 +1382,7 @@ function buildLauncherCard(entry) {
   favoriteButton.textContent = state.favorites.has(favoriteKey) ? "Pinned" : "Pin";
   favoriteButton.addEventListener("click", (event) => {
     event.stopPropagation();
+    const scrollState = getLauncherScrollState();
 
     if (state.favorites.has(favoriteKey)) {
       state.favorites.delete(favoriteKey);
@@ -1171,6 +1394,7 @@ function buildLauncherCard(entry) {
 
     saveFavorites();
     renderLauncher();
+    restoreLauncherScrollState(scrollState);
   });
 
   const description = document.createElement("p");
@@ -1198,7 +1422,11 @@ function buildLauncherCard(entry) {
   actions.className = "launcher-card-actions";
   actions.append(favoriteButton, editButton);
 
-  card.append(icon, title, actions, description, meta);
+  const bottomActions = document.createElement("div");
+  bottomActions.className = "launcher-card-bottom-actions";
+  bottomActions.append(deleteButton);
+
+  card.append(icon, title, actions, description, meta, bottomActions);
   card.addEventListener("dragstart", (event) => {
     if (!card.draggable) {
       return;
@@ -1256,7 +1484,7 @@ function buildLauncherCard(entry) {
 function renderLauncher() {
   clearChildren(elements.launcherGroups);
   clearChildren(elements.quickGroups);
-  elements.configPath.textContent = state.configDir || "";
+  updateConfigPathVisibility();
   const visibleEntries = getFilteredEntries();
   const hasEntries = state.entries.length > 0;
   elements.launcherEmpty.classList.toggle("hidden", visibleEntries.length > 0);
@@ -1384,6 +1612,7 @@ async function reorderDefaultApps(draggedId, targetId) {
 }
 
 async function loadLauncher(showStatus = false) {
+  const loadToken = ++state.iconLoadToken;
   const result = await window.homeLauncher.load();
   state.entries = Array.isArray(result.entries) ? result.entries : [];
   state.errors = Array.isArray(result.errors) ? result.errors : [];
@@ -1397,6 +1626,60 @@ async function loadLauncher(showStatus = false) {
       `Loaded ${state.entries.length.toLocaleString()} launcher app${state.entries.length === 1 ? "" : "s"}.`,
       "success"
     );
+  }
+
+  loadLauncherIcons(loadToken);
+}
+
+async function loadLauncherIcons(loadToken) {
+  if (!window.homeLauncher?.loadIcons) {
+    return;
+  }
+
+  const entries = state.entries
+    .filter((entry) => !entry.iconUrl && !entry.systemIconUrl)
+    .map((entry) => ({
+      id: entry.id,
+      sourceFile: entry.sourceFile,
+      sourceIndex: entry.sourceIndex,
+      kind: entry.kind,
+      target: entry.target,
+      command: entry.command,
+      iconUrl: entry.iconUrl
+    }));
+
+  if (entries.length === 0) {
+    return;
+  }
+
+  try {
+    const icons = await window.homeLauncher.loadIcons(entries);
+
+    if (loadToken !== state.iconLoadToken || !Array.isArray(icons) || icons.length === 0) {
+      return;
+    }
+
+    const iconsByEntry = new Map(icons.map((icon) => [getEntryIdentity(icon), icon.systemIconUrl]));
+    let changed = false;
+
+    state.entries = state.entries.map((entry) => {
+      const systemIconUrl = iconsByEntry.get(getEntryIdentity(entry));
+
+      if (!systemIconUrl || entry.systemIconUrl === systemIconUrl) {
+        return entry;
+      }
+
+      changed = true;
+      return { ...entry, systemIconUrl };
+    });
+
+    if (changed) {
+      const scrollState = getLauncherScrollState();
+      renderLauncher();
+      restoreLauncherScrollState(scrollState);
+    }
+  } catch (error) {
+    console.warn("System icon loading failed.", error);
   }
 }
 
@@ -1462,7 +1745,7 @@ async function restartWithConfirmation(message) {
   }
 
   try {
-    setStatus("Restarting Home Launcher...", "busy");
+    setStatus("Restarting App Launcher...", "busy");
     await window.homeLauncher.restart();
     return true;
   } catch (error) {
@@ -1472,11 +1755,20 @@ async function restartWithConfirmation(message) {
 }
 
 function registerButtons() {
+  if (window.homeLauncher?.onRestoredFromTray) {
+    window.homeLauncher.onRestoredFromTray(() => {
+      state.settings.minimizeToTray = false;
+      elements.minimizeToTray.checked = false;
+      saveSettings();
+      setStatus("Restored from tray.", "idle");
+    });
+  }
+
   elements.openConfig.addEventListener("click", async () => {
     try {
       const configDir = await window.homeLauncher.openConfigFolder();
       state.configDir = configDir ?? state.configDir;
-      elements.configPath.textContent = state.configDir;
+      updateConfigPathVisibility();
       setStatus(`Opened ${configDir}.`, "success");
     } catch (error) {
       setStatus(error.message, "error");
@@ -1933,6 +2225,14 @@ function registerButtons() {
     setStatus("Edit canceled.", "idle");
   });
 
+  elements.deleteApp.addEventListener("click", async () => {
+    try {
+      await deleteEditingApp();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
   elements.addAppPanel.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -1966,9 +2266,13 @@ function registerButtons() {
   elements.toggleSettings.addEventListener("click", () => {
     elements.settingsPanel.classList.toggle("hidden");
   });
+  elements.toggleAdvancedSettingsCompact.addEventListener("click", showAdvancedSettingsView);
+  elements.advancedSettingsBackToLauncher.addEventListener("click", showLauncherView);
+  elements.advancedSettingsOpenCustomize.addEventListener("click", showCustomizeView);
+  elements.advancedSettingsOpenEditors.addEventListener("click", showAdvancedEditorsView);
 
   elements.restartApp.addEventListener("click", async () => {
-    await restartWithConfirmation("Restart Home Launcher now?");
+    await restartWithConfirmation("Restart App Launcher now?");
   });
 
   elements.importFont.addEventListener("click", async () => {
@@ -2022,7 +2326,7 @@ function registerButtons() {
 
   elements.launchOnStartup.addEventListener("change", () => {
     state.settings.launchOnStartup = elements.launchOnStartup.checked;
-    applySettings();
+    applySettings({ syncWindow: false });
     saveSettings();
     window.homeLauncher.setLaunchOnStartup(state.settings.launchOnStartup)
       .then(() => {
@@ -2036,11 +2340,64 @@ function registerButtons() {
       });
   });
 
-  elements.minimizeToTray.addEventListener("change", () => {
-    state.settings.minimizeToTray = elements.minimizeToTray.checked;
-    applySettings({ syncTray: true });
+  elements.minimizeToTray.addEventListener("change", async () => {
+    const enabled = elements.minimizeToTray.checked;
+    state.settings.minimizeToTray = enabled;
+    applySettings({ syncWindow: false });
+
+    if (!enabled) {
+      setStatus("Minimize to tray canceled.", "idle");
+      saveSettings();
+      return;
+    }
+
+    try {
+      await window.homeLauncher.hideToTray();
+      saveSettings();
+    } catch (error) {
+      state.settings.minimizeToTray = false;
+      elements.minimizeToTray.checked = state.settings.minimizeToTray;
+      saveSettings();
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.hideToTray.addEventListener("click", async () => {
+    try {
+      state.settings.minimizeToTray = true;
+      elements.minimizeToTray.checked = true;
+      saveSettings();
+      await window.homeLauncher.hideToTray();
+    } catch (error) {
+      setStatus(error.message, "error");
+    }
+  });
+
+  elements.closeToTray.addEventListener("change", () => {
+    state.settings.closeToTray = elements.closeToTray.checked;
+    applySettings({ syncWindow: false });
     saveSettings();
-    setStatus(`Minimize to tray ${state.settings.minimizeToTray ? "enabled" : "disabled"}.`, "success");
+    setStatus(
+      `Close button ${state.settings.closeToTray ? "will hide to tray" : "will quit the app"}.`,
+      "success"
+    );
+  });
+
+  elements.showConfigPath.addEventListener("change", () => {
+    state.settings.showConfigPath = elements.showConfigPath.checked;
+    applySettings({ syncWindow: false });
+    saveSettings();
+    setStatus(`Config path ${state.settings.showConfigPath ? "shown" : "hidden"}.`, "success");
+  });
+
+  elements.highlightPrimaryButtons.addEventListener("change", () => {
+    state.settings.highlightPrimaryButtons = elements.highlightPrimaryButtons.checked;
+    applySettings({ syncWindow: false });
+    saveSettings();
+    setStatus(
+      `Primary button highlights ${state.settings.highlightPrimaryButtons ? "enabled" : "disabled"}.`,
+      "success"
+    );
   });
 
   elements.advancedCustomization.addEventListener("change", async () => {
@@ -2061,28 +2418,38 @@ function registerButtons() {
     }
 
     state.settings.advancedCustomization = enabled;
-    applySettings();
+    applySettings({ syncWindow: false });
     applyCustomCode({ runJs: enabled });
     saveSettings();
     updateAdvancedEditorLockState();
     setStatus(`Advanced customization ${enabled ? "enabled" : "disabled"}.`, "success");
   });
 
+  elements.deleteConfirmation.addEventListener("change", () => {
+    state.settings.deleteConfirmation = elements.deleteConfirmation.checked;
+    saveSettings();
+    setStatus(
+      `Delete confirmation ${state.settings.deleteConfirmation ? "enabled" : "disabled"}.`,
+      "success"
+    );
+  });
+
   elements.cardLayout.addEventListener("change", () => {
     if (state.settings.appOrientation === "vertical") {
-      applySettings();
+      applySettings({ syncWindow: false });
       setStatus("Vertical app mode forces the tall launcher layout.", "idle");
       return;
     }
 
     state.settings.cardLayout = normalizeCardLayout(elements.cardLayout.value);
-    applySettings();
+    applySettings({ syncWindow: false });
     saveSettings();
     setStatus(`Launcher card layout set to ${state.settings.cardLayout}.`, "success");
   });
 }
 
 async function initialize() {
+  await resetInstalledUiProfileOnce();
   loadSettings();
   loadActivity();
   loadTheme();

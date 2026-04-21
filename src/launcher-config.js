@@ -31,9 +31,9 @@ function getDefaultAppsFile() {
 }
 
 function getDefaultGuide() {
-  return `# Home Launcher Config
+  return `# App Launcher Config
 
-Use the Home launcher app's **Add App** button for the easiest setup. It writes new entries to \`apps.json\` in this folder.
+Use the App Launcher app's **Add App** button for the easiest setup. It writes new entries to \`apps.json\` in this folder.
 
 Use the **Edit** button on an existing launcher card to update the JSON entry it came from.
 
@@ -102,7 +102,7 @@ Optional icon fields:
 - \`iconPath\` points to an image file, such as \`.ico\`, \`.png\`, \`.jpg\`, \`.webp\`, \`.gif\`, or \`.svg\`.
 - \`icon\` is fallback text shown when no \`iconPath\` is set or the icon image cannot load.
 - The app editor's Icon image picker writes \`iconPath\` and overrides the default generated initials.
-- If \`iconPath\` is empty, Home tries to use the target file, folder, executable, or absolute command's system icon automatically.
+- If \`iconPath\` is empty, App Launcher tries to use the target file, folder, executable, or absolute command's system icon automatically.
 
 For \`kind: "command"\`:
 
@@ -136,7 +136,7 @@ function getSampleAppsFile() {
           name: "Example Command",
           kind: "command",
           command: "cmd.exe",
-          args: ["/d", "/c", "echo Hello from Home Launcher"],
+          args: ["/d", "/c", "echo Hello from App Launcher"],
           keepOpen: true,
           group: "Examples",
           description: "Run a visible sample command"
@@ -417,6 +417,27 @@ function updateLauncherEntry(homeRoot, payload) {
     entry: writableEntry,
     sourceFile: path.basename(configPath),
     sourceIndex
+  };
+}
+
+function deleteLauncherEntry(homeRoot, payload) {
+  const configPath = resolveEditableConfigFile(homeRoot, payload?.sourceFile);
+  const sourceIndex = parseEditableIndex(payload?.sourceIndex);
+  const config = readWritableAppsConfig(configPath);
+
+  if (sourceIndex >= config.apps.length) {
+    throw new Error(`Entry ${sourceIndex + 1} no longer exists in "${path.basename(configPath)}".`);
+  }
+
+  const [removedEntry] = config.apps.splice(sourceIndex, 1);
+  writeWritableAppsConfig(configPath, config);
+
+  return {
+    configPath,
+    entry: removedEntry,
+    sourceFile: path.basename(configPath),
+    sourceIndex,
+    count: config.apps.length
   };
 }
 
@@ -893,6 +914,7 @@ module.exports = {
   importLauncherConfig,
   loadLauncherEntries,
   normalizeLauncherKind,
+  deleteLauncherEntry,
   reorderLauncherEntries,
   scanLauncherFolder,
   updateLauncherEntry

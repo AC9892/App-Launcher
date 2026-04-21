@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Home Launcher</title>
+    <title>App Launcher</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -14,9 +14,14 @@
           <h1>App Launcher</h1>
           <p class="app-subtitle">Load apps and shortcuts from `/Home/Confg`.</p>
         </div>
-        <div class="app-badges">
-          <span>HOME</span>
-          <span>v1.2.0</span>
+        <div class="app-header-tools">
+          <button id="toggle-advanced-settings-compact" class="icon-button header-icon-button" type="button" title="Advanced Settings" aria-label="Advanced Settings">
+            <img src="./Confg/SettingsMenu.png" alt="" />
+          </button>
+          <div class="app-badges">
+            <span>HOME</span>
+            <span>v1.3.1</span>
+          </div>
         </div>
       </header>
 
@@ -69,7 +74,12 @@
             <input id="advanced-customization" type="checkbox" />
             <span>Advanced customization</span>
           </label>
+          <label class="checkbox-field">
+            <input id="delete-confirmation" type="checkbox" />
+            <span>Confirm before deleting apps</span>
+          </label>
           <div class="settings-actions">
+            <button id="hide-to-tray" class="secondary" type="button">Hide to Tray</button>
             <button id="import-font" class="secondary" type="button">Import Font</button>
             <button id="reset-font" class="secondary" type="button">Reset Font</button>
             <button id="restart-app" class="secondary" type="button">Restart App</button>
@@ -87,7 +97,7 @@
           <div class="form-grid">
             <label class="field">
               <span>Name</span>
-              <input id="app-name" type="text" required placeholder="ANTC Studio" />
+              <input id="app-name" type="text" required placeholder="Example App" />
             </label>
 
             <label class="field">
@@ -176,6 +186,7 @@
             <button id="save-app" class="primary" type="submit">Save App</button>
             <button id="clear-add-app" class="secondary" type="button">Clear</button>
             <button id="cancel-edit-app" class="secondary hidden" type="button">Cancel Edit</button>
+            <button id="delete-app" class="secondary danger-button delete-app-button hidden" type="button">Delete App</button>
           </div>
         </form>
 
@@ -207,6 +218,37 @@
         </div>
 
         <div id="launcher-status" class="result-card hidden"></div>
+      </section>
+
+      <section id="advanced-settings-view" class="panel app-view advanced-settings-view hidden">
+        <div class="panel-header">
+          <div>
+            <h2>Advanced Settings</h2>
+            <p class="config-path">Advanced customization, custom code, and editor tools.</p>
+          </div>
+          <div class="actions">
+            <button id="advanced-settings-back-to-launcher" class="primary" type="button">Back to Apps</button>
+            <button id="advanced-settings-open-customize" class="secondary" type="button">Customize UI</button>
+            <button id="advanced-settings-open-editors" class="secondary" type="button">Advanced Editors</button>
+          </div>
+        </div>
+        <div class="note-card">
+          Use the Advanced customization toggle in the regular Settings panel before opening embedded HTML and JavaScript editors.
+        </div>
+        <div class="settings-panel">
+          <label class="checkbox-field">
+            <input id="highlight-primary-buttons" type="checkbox" />
+            <span>Highlight primary buttons</span>
+          </label>
+          <label class="checkbox-field">
+            <input id="show-config-path" type="checkbox" />
+            <span>Show config path</span>
+          </label>
+          <label class="checkbox-field">
+            <input id="close-to-tray" type="checkbox" />
+            <span>Close button hides to tray</span>
+          </label>
+        </div>
       </section>
 
       <section id="customize-view" class="panel app-view customize-view hidden">

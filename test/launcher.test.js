@@ -6,6 +6,7 @@ const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const {
   appendLauncherEntry,
+  deleteLauncherEntry,
   ensureLauncherConfig,
   exportLauncherConfig,
   importLauncherConfig,
@@ -93,7 +94,7 @@ test("home launcher supports command entries", () => {
             name: "ANTC CLI",
             kind: "command",
             command: "node",
-            args: ["src\\cli.js", "info", "C:\\Users\\bryce\\Downloads\\file.atl"],
+            args: ["src\\cli.js", "info", "C:\\Users\\Example\\Downloads\\file.atl"],
             cwd: "..\\..\\App",
             keepOpen: true,
             consoleWindow: "minimized"
@@ -112,7 +113,7 @@ test("home launcher supports command entries", () => {
   assert.equal(launcher.errors.length, 0);
   assert.equal(command.kind, "command");
   assert.equal(command.command, "node");
-  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Users\\bryce\\Downloads\\file.atl"]);
+  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Users\\Example\\Downloads\\file.atl"]);
   assert.equal(command.cwd, path.resolve(configDir, "..\\..\\App"));
   assert.equal(command.keepOpen, true);
   assert.equal(command.consoleWindow, "minimized");
@@ -245,6 +246,33 @@ test("home launcher updates an existing app entry in its source config", () => {
   assert.equal(reloaded.entries[0].name, "Second Tool");
   assert.equal(reloaded.entries[0].description, "Updated");
   assert.equal(reloaded.entries[0].target, secondTarget);
+});
+
+test("home launcher deletes an existing app entry from its source config", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-delete-"));
+
+  appendLauncherEntry(tempRoot, {
+    name: "Keep Tool",
+    kind: "executable",
+    target: path.join(tempRoot, "keep.exe")
+  });
+  appendLauncherEntry(tempRoot, {
+    name: "Delete Tool",
+    kind: "executable",
+    target: path.join(tempRoot, "delete.exe")
+  });
+
+  const loaded = loadLauncherEntries(tempRoot);
+  const entry = loaded.entries.find((item) => item.name === "Delete Tool");
+  const result = deleteLauncherEntry(tempRoot, {
+    sourceFile: entry.sourceFile,
+    sourceIndex: entry.sourceIndex
+  });
+  const reloaded = loadLauncherEntries(tempRoot);
+
+  assert.equal(result.entry.name, "Delete Tool");
+  assert.equal(result.count, 1);
+  assert.deepEqual(reloaded.entries.map((item) => item.name), ["Keep Tool"]);
 });
 
 test("home launcher warns for missing local paths without blocking load", () => {

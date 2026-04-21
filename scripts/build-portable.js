@@ -3,10 +3,12 @@ const path = require("node:path");
 
 const rootDir = path.resolve(__dirname, "..");
 const electronDist = path.join(rootDir, "node_modules", "electron", "dist");
-const outputDir = path.join(rootDir, "dist", "HomeLauncher-win32-x64");
+const outputDir = path.join(rootDir, "dist", "AppLauncher-win32-x64");
 const appDir = path.join(outputDir, "resources", "app");
 const appFiles = [
   "Confg",
+  "ADV_EDITOR_CLASSES.md",
+  "ADV_MODDING_TUTORIAL.md",
   "index.html",
   "main.js",
   "package.json",
@@ -47,10 +49,12 @@ for (const fileName of appFiles) {
 }
 
 const electronExe = path.join(outputDir, "electron.exe");
-const launcherExe = path.join(outputDir, "Home Launcher.exe");
+const launcherExe = path.join(outputDir, "App Launcher.exe");
 
 if (fs.existsSync(electronExe)) {
   fs.renameSync(electronExe, launcherExe);
 }
+
+fs.writeFileSync(path.join(outputDir, ".portable-profile"), "App Launcher portable profile\n");
 
 console.log(`Portable build created at ${outputDir}`);

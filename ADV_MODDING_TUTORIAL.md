@@ -1,6 +1,6 @@
 # Advanced Modding Tutorial
 
-This guide is for the Advanced Editors in Home Launcher:
+This guide is for the Advanced Editors in App Launcher:
 
 - Custom Effect: CSS only.
 - Embedded HTML: adds custom markup into the launcher.
@@ -8,55 +8,11 @@ This guide is for the Advanced Editors in Home Launcher:
 
 Keep JavaScript small and only run code you trust.
 
-## Main CSS Classes
+Advanced editors include autosave, imports, pop-out windows, line numbers, word wrap, and syntax highlighting for CSS, HTML, and JavaScript.
 
-Use these in the Custom Effect CSS editor.
+## Class And Variable Reference
 
-| Selector | What it controls |
-| --- | --- |
-| `body` | Whole app page, background effects, global overlays. |
-| `.app-shell` | Main app frame. |
-| `.panel` | Main view panels. |
-| `.panel-header` | Top title row and action buttons. |
-| `.launcher-groups` | Container for all app groups. |
-| `.quick-groups` | Pinned, recent, and most-used rows. |
-| `.quick-group` | One quick group section. |
-| `.launcher-group` | One normal app group section. |
-| `.group-header` | Group title and app count. |
-| `.launcher-grid` | Grid that holds app cards. |
-| `.launcher-card` | One launchable app card. |
-| `.launcher-card-icon` | App icon, image, or initials. |
-| `.launcher-card-actions` | Pin and Edit buttons on a card. |
-| `.launcher-card-meta` | Row that holds labels and tags. |
-| `.launcher-pill` | Kind, config file, and tag labels. |
-| `.warning-pill` | Warning label on a card. |
-| `.dragging` | Card being dragged during reorder. |
-| `.custom-html-root` | Where Embedded HTML is inserted. |
-| `.status-bar` | Bottom status text. |
-
-## Useful Theme Variables
-
-These are the safest variables to use in custom CSS because they follow the current theme.
-
-| Variable | What it controls |
-| --- | --- |
-| `--page-background` | Whole page background. |
-| `--primary-background` | Main panel background. |
-| `--launcher-card-background` | App card background. |
-| `--surface` | Normal surface color. |
-| `--surface-soft` | Softer panel color. |
-| `--surface-strong` | Stronger panel color. |
-| `--text` | Main text color. |
-| `--muted` | Secondary text color. |
-| `--accent` | Main accent color. |
-| `--accent-strong` | Brighter accent color. |
-| `--line` | Normal border color. |
-| `--line-strong` | Strong border color. |
-| `--ok` | Success color. |
-| `--warn` | Warning color. |
-| `--error` | Error color. |
-| `--font-body` | Main font. |
-| `--font-display` | Header/title font. |
+See `ADV_EDITOR_CLASSES.md` for the full selector reference, body state classes, theme variables, editor token classes, modal classes, and modding safety notes.
 
 ## CSS Examples
 
@@ -115,6 +71,16 @@ body::after {
 ```css
 .launcher-card-meta {
   display: none;
+}
+```
+
+### Restyle the card delete button
+
+```css
+.launcher-card-delete {
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(241, 141, 124, 0.12);
 }
 ```
 
@@ -218,3 +184,5 @@ setInterval(updateClock, 1000);
 - Use `.custom-html-root` for HTML widgets.
 - Use `document.querySelector` and `document.querySelectorAll` for JavaScript mods.
 - Avoid deleting built-in elements with JavaScript unless you know you can recover them.
+- The app uses `Confg/AppIcon.ico` first and `Confg/AppIcon.png` second for runtime window and tray icons.
+- The real `.exe` icon is a packaging concern and usually needs a proper `.ico` file.

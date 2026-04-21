@@ -2,9 +2,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { spawn } = require("node:child_process");
-const { app, BrowserWindow, Tray, dialog, ipcMain, Menu, shell } = require("electron");
+const { app, BrowserWindow, Tray, dialog, ipcMain, Menu, nativeImage, shell } = require("electron");
 const {
   appendLauncherEntry,
+  deleteLauncherEntry,
   ensureLauncherConfig,
   exportLauncherConfig,
   importLauncherConfig,
@@ -15,11 +16,37 @@ const {
   updateLauncherEntry
 } = require("./src/launcher-config");
 
-const HOME_ROOT = path.resolve(__dirname);
+const APP_ROOT = path.resolve(__dirname);
 let mainWindow = null;
 let tray = null;
 let minimizeToTray = false;
+let closeToTray = true;
+let portableProfileEnabled = false;
 const editorWindows = new Map();
+const systemIconCache = new Map();
+
+function configurePortableUserData() {
+  const exeDir = path.dirname(process.execPath);
+  const portableMarker = path.join(exeDir, ".portable-profile");
+
+  if (app.isPackaged && fs.existsSync(portableMarker)) {
+    portableProfileEnabled = true;
+    app.setPath("userData", path.join(exeDir, "UserData"));
+  }
+}
+
+configurePortableUserData();
+
+function getLauncherRoot() {
+  return app.isPackaged && !portableProfileEnabled ? app.getPath("userData") : APP_ROOT;
+}
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
 const WINDOW_PRESETS = {
   vertical: {
     width: 760,
@@ -35,12 +62,22 @@ const WINDOW_PRESETS = {
   }
 };
 
+function getConfiguredAppIconPath() {
+  const iconCandidates = [
+    path.join(APP_ROOT, "Confg", "AppIcon.ico"),
+    path.join(APP_ROOT, "Confg", "AppIcon.png")
+  ];
+
+  return iconCandidates.find((iconPath) => fs.existsSync(iconPath)) ?? null;
+}
+
 const WINDOW_OPTIONS = {
   ...WINDOW_PRESETS.vertical,
   backgroundColor: "#0e1518",
+  icon: getConfiguredAppIconPath() ?? undefined,
   autoHideMenuBar: true,
   webPreferences: {
-    preload: path.join(__dirname, "preload.js"),
+    preload: path.join(APP_ROOT, "preload.js"),
     contextIsolation: true,
     nodeIntegration: false,
     sandbox: false
@@ -50,10 +87,11 @@ const WINDOW_OPTIONS = {
 function createWindow() {
   const window = new BrowserWindow(WINDOW_OPTIONS);
   mainWindow = window;
-  window.loadFile(path.join(__dirname, "index.html"));
-  window.on("close", (event) => {
-    if (!app.isQuitting && minimizeToTray) {
+  window.loadFile(path.join(APP_ROOT, "index.html"));
+  window.on("close", async (event) => {
+    if (!app.isQuitting && closeToTray) {
       event.preventDefault();
+      await updateTray(true);
       window.hide();
     }
   });
@@ -62,6 +100,7 @@ function createWindow() {
     window.webContents.once("did-finish-load", () => {
       console.log("HOME_LAUNCHER_SMOKE_TEST_OK");
       setTimeout(() => {
+        app.isQuitting = true;
         app.quit();
       }, 250);
     });
@@ -77,8 +116,16 @@ function createWindow() {
 
 function showMainWindow() {
   const window = mainWindow && !mainWindow.isDestroyed() ? mainWindow : createWindow();
+  const wasHidden = !window.isVisible();
+  if (window.isMinimized()) {
+    window.restore();
+  }
   window.show();
   window.focus();
+
+  if (wasHidden) {
+    window.webContents.send("app:restored-from-tray");
+  }
 }
 
 function getEditorHtml(title, storageKey, fieldKey, languageLabel) {
@@ -334,6 +381,7 @@ function openEditorWindow(payload) {
     minWidth: 520,
     minHeight: 420,
     title: config.title,
+    icon: getConfiguredAppIconPath() ?? undefined,
     backgroundColor: "#07090b",
     autoHideMenuBar: true,
     webPreferences: {
@@ -430,36 +478,43 @@ function getSystemIconTarget(entry) {
   return path.isAbsolute(entry.target ?? "") ? entry.target : "";
 }
 
-async function addSystemIcons(launcher) {
-  const entries = await Promise.all(
-    launcher.entries.map(async (entry) => {
-      const iconTarget = getSystemIconTarget(entry);
+async function loadSystemIcons(entries) {
+  const iconEntries = Array.isArray(entries) ? entries : [];
+  const icons = [];
 
-      if (!iconTarget || !fs.existsSync(iconTarget)) {
-        return entry;
-      }
+  for (const entry of iconEntries) {
+    const iconTarget = getSystemIconTarget(entry);
 
-      try {
+    if (!iconTarget || !fs.existsSync(iconTarget)) {
+      continue;
+    }
+
+    try {
+      let systemIconUrl = systemIconCache.get(iconTarget);
+
+      if (!systemIconUrl) {
         const icon = await app.getFileIcon(iconTarget, { size: "normal" });
 
         if (icon.isEmpty()) {
-          return entry;
+          continue;
         }
 
-        return {
-          ...entry,
-          systemIconUrl: icon.toDataURL()
-        };
-      } catch {
-        return entry;
+        systemIconUrl = icon.toDataURL();
+        systemIconCache.set(iconTarget, systemIconUrl);
       }
-    })
-  );
 
-  return {
-    ...launcher,
-    entries
-  };
+      icons.push({
+        id: entry.id,
+        sourceFile: entry.sourceFile,
+        sourceIndex: entry.sourceIndex,
+        systemIconUrl
+      });
+    } catch {
+      // Missing or inaccessible targets should not slow down the launcher.
+    }
+  }
+
+  return icons;
 }
 
 async function chooseLauncherTarget(payload) {
@@ -510,7 +565,7 @@ async function exportConfigBackup() {
     return null;
   }
 
-  return exportLauncherConfig(HOME_ROOT, result.filePath);
+  return exportLauncherConfig(getLauncherRoot(), result.filePath);
 }
 
 async function importConfigBackup() {
@@ -527,7 +582,7 @@ async function importConfigBackup() {
     return null;
   }
 
-  return importLauncherConfig(HOME_ROOT, result.filePaths[0]);
+  return importLauncherConfig(getLauncherRoot(), result.filePaths[0]);
 }
 
 async function scanLauncherFolderFromDialog() {
@@ -540,7 +595,7 @@ async function scanLauncherFolderFromDialog() {
     return null;
   }
 
-  return scanLauncherFolder(HOME_ROOT, result.filePaths[0]);
+  return scanLauncherFolder(getLauncherRoot(), result.filePaths[0]);
 }
 
 async function chooseFontFile() {
@@ -620,8 +675,41 @@ async function chooseCustomCodeFile(kind) {
   };
 }
 
-function updateTray(enabled) {
+async function getTrayIcon() {
+  const iconCandidates = [
+    getConfiguredAppIconPath(),
+    path.join(process.resourcesPath || __dirname, "electron.ico"),
+    path.join(__dirname, "electron.ico")
+  ].filter(Boolean);
+
+  for (const iconPath of iconCandidates) {
+    if (fs.existsSync(iconPath)) {
+      const image = nativeImage.createFromPath(iconPath);
+
+      if (!image.isEmpty()) {
+        return image;
+      }
+    }
+  }
+
+  try {
+    const image = await app.getFileIcon(process.execPath, { size: "normal" });
+
+    if (!image.isEmpty()) {
+      return image;
+    }
+  } catch {
+    // Fall through to the built-in transparent fallback below.
+  }
+
+  return nativeImage.createFromDataURL(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
+  );
+}
+
+async function updateTray(enabled) {
   minimizeToTray = enabled === true;
+  const targetWindow = getWindow();
 
   if (!minimizeToTray) {
     if (tray) {
@@ -629,15 +717,19 @@ function updateTray(enabled) {
       tray = null;
     }
 
+    if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isVisible()) {
+      targetWindow.show();
+      targetWindow.focus();
+    }
+
     return { enabled: false };
   }
 
   if (!tray) {
-    const iconPath = path.join(process.resourcesPath || __dirname, "electron.ico");
-    tray = new Tray(fs.existsSync(iconPath) ? iconPath : process.execPath);
-    tray.setToolTip("Home Launcher");
+    tray = new Tray(await getTrayIcon());
+    tray.setToolTip("App Launcher");
     tray.setContextMenu(Menu.buildFromTemplate([
-      { label: "Open Home Launcher", click: showMainWindow },
+      { label: "Open App Launcher", click: showMainWindow },
       { type: "separator" },
       {
         label: "Quit",
@@ -651,6 +743,22 @@ function updateTray(enabled) {
   }
 
   return { enabled: true };
+}
+
+async function hideToTray() {
+  await updateTray(true);
+  const targetWindow = getWindow();
+
+  if (targetWindow && !targetWindow.isDestroyed() && targetWindow.isVisible()) {
+    targetWindow.hide();
+  }
+
+  return { enabled: true, hidden: true };
+}
+
+function setCloseToTray(enabled) {
+  closeToTray = enabled === true;
+  return { enabled: closeToTray };
 }
 
 function setLaunchOnStartup(enabled) {
@@ -707,7 +815,7 @@ function launchDetachedWithPowerShell(command, args, cwd, consoleWindow, runAsAd
 function launchCommand(payload) {
   const command = String(payload?.command ?? payload?.target ?? "").trim();
   const args = Array.isArray(payload?.args) ? payload.args.map((arg) => String(arg)) : [];
-  const cwd = String(payload?.cwd ?? HOME_ROOT).trim() || HOME_ROOT;
+  const cwd = String(payload?.cwd ?? getLauncherRoot()).trim() || getLauncherRoot();
   const keepOpen = payload?.keepOpen === true;
   const consoleWindow = String(payload?.consoleWindow ?? "normal").trim().toLowerCase();
   const runAsAdmin = payload?.runAsAdmin === true;
@@ -823,15 +931,27 @@ async function safeHandle(work) {
 }
 
 function registerIpc() {
-  ensureLauncherConfig(HOME_ROOT);
+  ensureLauncherConfig(getLauncherRoot());
 
   ipcMain.handle("launcher:load", () =>
-    safeHandle(async () => addSystemIcons(loadLauncherEntries(HOME_ROOT)))
+    safeHandle(async () => loadLauncherEntries(getLauncherRoot()))
+  );
+
+  ipcMain.handle("launcher:load-icons", (_, payload) =>
+    safeHandle(async () => loadSystemIcons(payload?.entries))
+  );
+
+  ipcMain.handle("app:get-runtime-info", () =>
+    safeHandle(async () => ({
+      packaged: app.isPackaged,
+      portable: portableProfileEnabled,
+      version: app.getVersion()
+    }))
   );
 
   ipcMain.handle("launcher:open-config", () =>
     safeHandle(async () => {
-      const { configDir } = ensureLauncherConfig(HOME_ROOT);
+      const { configDir } = ensureLauncherConfig(getLauncherRoot());
       const result = await shell.openPath(configDir);
 
       if (result) {
@@ -895,7 +1015,7 @@ function registerIpc() {
   );
 
   ipcMain.handle("launcher:reorder-apps", (_, payload) =>
-    safeHandle(async () => reorderLauncherEntries(HOME_ROOT, payload?.orderedIds))
+    safeHandle(async () => reorderLauncherEntries(getLauncherRoot(), payload?.orderedIds))
   );
 
   ipcMain.handle("launcher:choose-font", () =>
@@ -915,11 +1035,15 @@ function registerIpc() {
   );
 
   ipcMain.handle("launcher:add-app", (_, payload) =>
-    safeHandle(async () => appendLauncherEntry(HOME_ROOT, payload))
+    safeHandle(async () => appendLauncherEntry(getLauncherRoot(), payload))
   );
 
   ipcMain.handle("launcher:update-app", (_, payload) =>
-    safeHandle(async () => updateLauncherEntry(HOME_ROOT, payload))
+    safeHandle(async () => updateLauncherEntry(getLauncherRoot(), payload))
+  );
+
+  ipcMain.handle("launcher:delete-app", (_, payload) =>
+    safeHandle(async () => deleteLauncherEntry(getLauncherRoot(), payload))
   );
 
   ipcMain.handle("window:set-orientation", (_, orientation) =>
@@ -934,6 +1058,14 @@ function registerIpc() {
     safeHandle(async () => updateTray(enabled))
   );
 
+  ipcMain.handle("app:hide-to-tray", () =>
+    safeHandle(async () => hideToTray())
+  );
+
+  ipcMain.handle("app:set-close-to-tray", (_, enabled) =>
+    safeHandle(async () => setCloseToTray(enabled))
+  );
+
   ipcMain.handle("app:restart", () =>
     safeHandle(async () => {
       app.relaunch();
@@ -943,20 +1075,32 @@ function registerIpc() {
   );
 }
 
-app.whenReady().then(() => {
-  Menu.setApplicationMenu(null);
-  registerIpc();
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+if (gotSingleInstanceLock) {
+  app.on("second-instance", () => {
+    if (app.isReady()) {
+      showMainWindow();
+    } else {
+      app.whenReady().then(() => showMainWindow());
     }
   });
-});
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin" && !minimizeToTray) {
-    app.quit();
-  }
-});
+  app.whenReady().then(() => {
+    Menu.setApplicationMenu(null);
+    registerIpc();
+    createWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createWindow();
+      } else {
+        showMainWindow();
+      }
+    });
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin" && (!minimizeToTray || !closeToTray)) {
+      app.quit();
+    }
+  });
+}
