@@ -50,3 +50,6 @@ Executable and command entries can also set `runAsAdmin`.
 - Customize colors, effects, layout, and imported fonts.
 - Toggle launch-on-startup and minimize-to-tray in Settings.
 - Launch executable and command entries as administrator when enabled.
+
+
+* Cant code so Codex did like everything sad yeah ik but hey it works which is nice
