@@ -22,7 +22,7 @@ The portable Windows folder is created at:
 ```text
 dist/AppLauncher-win32-x64
 ```
-
+this is the build name *added portable
 ## Config
 
 Launcher entries are loaded from:
