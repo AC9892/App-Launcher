@@ -5,7 +5,7 @@ Version 1.3.1
 App Launcher is a standalone Electron launcher for Windows. It loads configurable app cards from JSON files, supports common launch targets, and includes UI customization plus advanced modding tools.
 
 Join discord to get EXPO versions *Test builds for just random stuff
-discord.gg/vjHt6w49eY
+https://discord.gg/vjHt6w49eY
 
 ## Run From Source
 
