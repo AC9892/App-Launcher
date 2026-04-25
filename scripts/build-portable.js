@@ -7,8 +7,6 @@ const outputDir = path.join(rootDir, "dist", "AppLauncher-win32-x64");
 const appDir = path.join(outputDir, "resources", "app");
 const appFiles = [
   "Confg",
-  "ADV_EDITOR_CLASSES.md",
-  "ADV_MODDING_TUTORIAL.md",
   "index.html",
   "main.js",
   "package.json",

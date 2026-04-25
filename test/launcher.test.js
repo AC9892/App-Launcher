@@ -1,4 +1,4 @@
-const test = require("node:test");
+const { after, test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -16,8 +16,26 @@ const {
   updateLauncherEntry
 } = require("../src/launcher-config");
 
+const TEST_TEMP_ROOT = path.join(os.tmpdir(), "home-launcher-tests");
+const trackedTempRoots = new Set();
+
+function createTempHome(prefix) {
+  fs.mkdirSync(TEST_TEMP_ROOT, { recursive: true });
+  const tempRoot = fs.mkdtempSync(path.join(TEST_TEMP_ROOT, `${prefix}-`));
+  trackedTempRoots.add(tempRoot);
+  return tempRoot;
+}
+
+after(() => {
+  for (const tempRoot of trackedTempRoots) {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+
+  fs.rmSync(TEST_TEMP_ROOT, { recursive: true, force: true });
+});
+
 test("home launcher config bootstraps default files", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-"));
+  const tempRoot = createTempHome("bootstrap");
   const paths = ensureLauncherConfig(tempRoot);
 
   assert.equal(fs.existsSync(paths.configDir), true);
@@ -29,7 +47,7 @@ test("home launcher config bootstraps default files", () => {
 });
 
 test("home launcher loads json entries and resolves relative targets", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-load-"));
+  const tempRoot = createTempHome("load");
   const configDir = path.join(tempRoot, "Confg");
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(
@@ -71,7 +89,7 @@ test("home launcher loads json entries and resolves relative targets", () => {
 });
 
 test("home launcher does not load the clean sample config as real apps", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-sample-"));
+  const tempRoot = createTempHome("sample");
 
   ensureLauncherConfig(tempRoot);
   const launcher = loadLauncherEntries(tempRoot);
@@ -82,7 +100,7 @@ test("home launcher does not load the clean sample config as real apps", () => {
 });
 
 test("home launcher supports command entries", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-command-"));
+  const tempRoot = createTempHome("command");
   const configDir = path.join(tempRoot, "Confg");
   fs.mkdirSync(configDir, { recursive: true });
   fs.writeFileSync(
@@ -94,7 +112,7 @@ test("home launcher supports command entries", () => {
             name: "ANTC CLI",
             kind: "command",
             command: "node",
-            args: ["src\\cli.js", "info", "C:\\Users\\Example\\Downloads\\file.atl"],
+            args: ["src\\cli.js", "info", "C:\\Example\\file.atl"],
             cwd: "..\\..\\App",
             keepOpen: true,
             consoleWindow: "minimized"
@@ -113,14 +131,14 @@ test("home launcher supports command entries", () => {
   assert.equal(launcher.errors.length, 0);
   assert.equal(command.kind, "command");
   assert.equal(command.command, "node");
-  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Users\\Example\\Downloads\\file.atl"]);
+  assert.deepEqual(command.args, ["src\\cli.js", "info", "C:\\Example\\file.atl"]);
   assert.equal(command.cwd, path.resolve(configDir, "..\\..\\App"));
   assert.equal(command.keepOpen, true);
   assert.equal(command.consoleWindow, "minimized");
 });
 
 test("home launcher appends app entries to the default config", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-add-"));
+  const tempRoot = createTempHome("add");
   const target = path.join(tempRoot, "tool.exe");
   const iconPath = path.join(tempRoot, "tool.png");
 
@@ -164,7 +182,7 @@ test("home launcher appends app entries to the default config", () => {
 });
 
 test("home launcher reorders entries in the default config", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-reorder-"));
+  const tempRoot = createTempHome("reorder");
 
   appendLauncherEntry(tempRoot, {
     name: "First",
@@ -189,7 +207,7 @@ test("home launcher reorders entries in the default config", () => {
 });
 
 test("home launcher appends command entries to the default config", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-add-command-"));
+  const tempRoot = createTempHome("add-command");
 
   const result = appendLauncherEntry(tempRoot, {
     name: "ANTC",
@@ -219,7 +237,7 @@ test("home launcher appends command entries to the default config", () => {
 });
 
 test("home launcher updates an existing app entry in its source config", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-update-"));
+  const tempRoot = createTempHome("update");
   const firstTarget = path.join(tempRoot, "first.exe");
   const secondTarget = path.join(tempRoot, "second.exe");
 
@@ -249,7 +267,7 @@ test("home launcher updates an existing app entry in its source config", () => {
 });
 
 test("home launcher deletes an existing app entry from its source config", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-delete-"));
+  const tempRoot = createTempHome("delete");
 
   appendLauncherEntry(tempRoot, {
     name: "Keep Tool",
@@ -276,7 +294,7 @@ test("home launcher deletes an existing app entry from its source config", () =>
 });
 
 test("home launcher warns for missing local paths without blocking load", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-warnings-"));
+  const tempRoot = createTempHome("warnings");
 
   appendLauncherEntry(tempRoot, {
     name: "Missing Tool",
@@ -294,7 +312,7 @@ test("home launcher warns for missing local paths without blocking load", () => 
 });
 
 test("home launcher rejects duplicate app entries", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-duplicates-"));
+  const tempRoot = createTempHome("duplicates");
   const target = path.join(tempRoot, "tool.exe");
 
   appendLauncherEntry(tempRoot, {
@@ -325,7 +343,7 @@ test("home launcher rejects duplicate app entries", () => {
 });
 
 test("home launcher imports and exports launcher config backups", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-import-export-"));
+  const tempRoot = createTempHome("import-export");
   const importPath = path.join(tempRoot, "import.json");
   const exportPath = path.join(tempRoot, "export.json");
 
@@ -368,7 +386,7 @@ test("home launcher imports and exports launcher config backups", () => {
 });
 
 test("home launcher scans folders for app files and skips duplicates", () => {
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "home-launcher-scan-"));
+  const tempRoot = createTempHome("scan");
   const scanRoot = path.join(tempRoot, "scan");
   const toolPath = path.join(scanRoot, "Tool.exe");
   const shortcutPath = path.join(scanRoot, "Docs.lnk");

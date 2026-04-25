@@ -4,6 +4,8 @@ This file is the reference sheet for modders using App Launcher's Advanced Edito
 
 Use `ADV_MODDING_TUTORIAL.md` for examples. Use this file when you need selectors, body state classes, theme variables, and token classes.
 
+`Applauncher Expo` may test new selectors or body classes before they are part of the stable release. Stable/release selectors should be confirmed in `AppLauncher Bak`.
+
 ## Theme Variables
 
 These are the safest variables to use in custom CSS because they follow the active theme.
@@ -136,9 +138,18 @@ These classes are applied to `body` when modes/effects are active.
 | `.compact-field` | Compact settings field. |
 | `.command-fields` | Command-only form fields. |
 | `.danger-button` | Destructive button styling. |
+| `#app-kind` | App kind dropdown used by the add/edit form. |
 | `#run-as-admin-field` | Run as administrator checkbox row. |
 | `#delete-app` | Delete button in the edit form. |
 | `#hide-to-tray` | Immediate hide-to-tray button. |
+| `#app-orientation` | Main app orientation dropdown in Settings. |
+| `#card-layout` | Launcher card flow/layout dropdown in Settings. |
+| `#launch-on-startup` | Startup launch checkbox in Settings. |
+| `#minimize-to-tray` | Minimize-to-tray checkbox in Settings. |
+| `#advanced-customization` | Toggle that unlocks embedded HTML and JavaScript editors. |
+| `#delete-confirmation` | Delete-confirmation checkbox in Settings. |
+| `#import-font` | Button that imports a custom font file. |
+| `#reset-font` | Button that clears the imported custom font. |
 | `#close-to-tray` | Advanced Settings checkbox controlling whether X hides to tray. |
 | `#show-config-path` | Advanced Settings checkbox controlling config path visibility. |
 | `#highlight-primary-buttons` | Advanced Settings checkbox controlling primary button highlight styling. |
@@ -199,6 +210,14 @@ These style the Advanced Editor syntax colors.
 | `.confirm-content` | Popup text content. |
 | `.confirm-detail` | Popup detail/code block. |
 | `.confirm-actions` | Popup button row. |
+| `#target-kind-modal` | Compact target-choice modal used by the Folder/File browse flow. |
+| `.compact-choice-modal` | Smaller confirmation-style modal for browse target selection. |
+| `.compact-choice-actions` | Three-button action row inside the browse target modal. |
+| `#target-kind-title` | Browse target modal title. |
+| `#target-kind-message` | Browse target modal helper text. |
+| `#target-kind-file` | Browse target modal button for file selection. |
+| `#target-kind-folder` | Browse target modal button for folder selection. |
+| `#target-kind-cancel` | Browse target modal cancel button. |
 
 ## Useful Data And IDs
 

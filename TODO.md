@@ -39,6 +39,14 @@ This file is for project handoff notes only. It is not connected to the launcher
 - Avoid committing `node_modules/`, `dist/`, or `dist-installer/`.
 - Avoid committing personal app entries or local machine-specific paths.
 - Use the clean backup folder for public GitHub source.
+- Keep experimental work in `Applauncher Expo` until it is approved for the main release.
+- Copy Expo features into `AppLauncher Bak` only when they are stable enough for GitHub/release builds.
+
+## Project Folders
+
+- `Home`: raw personal working copy.
+- `AppLauncher Bak`: clean release/GitHub source.
+- `Applauncher Expo`: experimental dev/test build for ideas that may or may not ship.
 
 ## Known Notes
 
@@ -105,7 +113,7 @@ npm run build:portable
 - Add folders, profiles, or another way to organize app groups. This could be built into the launcher or exposed later through plugin support.
 - Add a minimal mode or overlay mode.
 - Explore an Elgato-style grid layout with box-based launcher tiles.
-- Release separate Dev/Test builds for experimental ideas before deciding whether they belong in the main release.
+- Use `Applauncher Expo` for Dev/Test builds and experimental ideas before deciding whether they belong in the main release.
 - Add an auto-updater or update notification system.
 - Add signed installer packaging.
 - Add a generated `.ico` build asset from `Confg/AppIcon.png`.

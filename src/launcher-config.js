@@ -54,9 +54,9 @@ Each file can be either:
       "description": "Open Notepad"
     },
     {
-      "name": "Example Folder",
+      "name": "Project Files",
       "kind": "folder",
-      "target": "..",
+      "target": "C:\\\\Path\\\\To\\\\Folder",
       "description": "Open a folder"
     },
     {
@@ -66,7 +66,7 @@ Each file can be either:
       "description": "Open the Home app folder"
     },
     {
-      "name": "Example Electron App",
+      "name": "ANTC Studio",
       "kind": "command",
       "command": "C:\\\\Program Files\\\\nodejs\\\\node.exe",
       "args": [
@@ -75,7 +75,7 @@ Each file can be either:
       ],
       "cwd": "..\\\\..\\\\App",
       "consoleWindow": "hidden",
-      "description": "Open an Electron app"
+      "description": "Open the ANTC desktop app"
     },
     {
       "name": "OpenAI",

@@ -231,43 +231,6 @@ function hideResult(element) {
   element.classList.add("hidden");
 }
 
-async function resetInstalledUiProfileOnce() {
-  if (!window.homeLauncher?.getRuntimeInfo) {
-    return;
-  }
-
-  try {
-    const runtimeInfo = await window.homeLauncher.getRuntimeInfo();
-
-    if (!runtimeInfo?.packaged || runtimeInfo?.portable) {
-      return;
-    }
-
-    const resetVersion = `installed-ui-reset-${runtimeInfo.version ?? "1.3.1"}`;
-    const markerKey = "appLauncherInstalledUiResetVersion";
-
-    if (window.localStorage.getItem(markerKey) === resetVersion) {
-      return;
-    }
-
-    for (const key of [
-      "homeLauncherSettings",
-      "homeLauncherTheme",
-      "homeLauncherCustomTheme",
-      "homeLauncherCustomEffect",
-      "homeLauncherCustomCode",
-      "homeLauncherFavorites",
-      "homeLauncherLaunchStats"
-    ]) {
-      window.localStorage.removeItem(key);
-    }
-
-    window.localStorage.setItem(markerKey, resetVersion);
-  } catch (error) {
-    console.warn("Installed UI profile reset skipped.", error);
-  }
-}
-
 function confirmAction({
   title = "Confirm",
   message = "",
@@ -866,7 +829,7 @@ function updateAddAppForm() {
   };
   const placeholders = {
     executable: "C:\\Windows\\System32\\notepad.exe",
-    file: "C:\\Path\\To\\file.pdf",
+    file: "C:\\Path\\To\\document.pdf",
     folder: "C:\\Path\\To\\Folder",
     url: "https://example.com",
     command: "C:\\Program Files\\nodejs\\node.exe"
@@ -2449,7 +2412,6 @@ function registerButtons() {
 }
 
 async function initialize() {
-  await resetInstalledUiProfileOnce();
   loadSettings();
   loadActivity();
   loadTheme();

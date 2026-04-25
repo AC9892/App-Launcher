@@ -1,41 +1,23 @@
 # App Launcher
 
-Version 1.3.1
+Version `1.3.1`
 
-App Launcher is a standalone Electron launcher for Windows. It loads configurable app cards from JSON files, supports common launch targets, and includes UI customization plus advanced modding tools.
+App Launcher is a Windows-focused Electron launcher for desktop apps, files, folders, websites, and custom commands. It is designed to be usable as a simple launcher out of the box, but it also supports deeper UI customization, advanced embedded styling/code, and a portable build workflow.
 
-Join discord to get EXPO versions *Test builds for just random stuff
-https://discord.gg/vjHt6w49eY
+## Repository Layout
 
-## Run From Source
+- `Home`
+  Raw personal working copy. This is where active local debugging and day-to-day changes may happen first.
+- `AppLauncher Bak`
+  Clean source copy intended for release prep and GitHub. Keep this folder free of personal app entries, personal machine paths, generated runtime state, `node_modules`, and build output.
+- `Applauncher Expo`
+  Canary or experimental branch for testing ideas before they are accepted into the cleaner main copy.
 
-```bash
-npm install
-npm start
-```
+## What The App Does
 
-## Portable Build
+App Launcher loads launcher entries from JSON files in `Confg/`, groups them into cards, and lets you launch or manage them from the UI.
 
-```bash
-npm run build:portable
-```
-
-The portable Windows folder is created at:
-
-```text
-dist/AppLauncher-win32-x64
-```
-this is the build name *added portable
-## Config
-
-Launcher entries are loaded from:
-
-- `Confg/apps.json`
-- any other `.json` files inside `Confg`
-
-Use `Confg/apps.sample.json` as a clean example config. See `Confg/README.md` for the full file format.
-
-Supported launcher kinds:
+Supported launch target types:
 
 - `executable`
 - `file`
@@ -43,31 +25,182 @@ Supported launcher kinds:
 - `url`
 - `command`
 
-Optional launcher fields include `description`, `group`, `tags`, `icon`, `iconPath`, `accent`, and `runAsAdmin`.
+Typical use cases:
 
-## Features
+- launch installed desktop apps
+- open project folders and documents
+- open websites
+- run scripts, CLIs, or Electron apps through command launchers
+- organize apps into groups and tags
 
-- Add, edit, delete, pin, and reorder launcher entries from the UI.
-- Delete apps from each app card or from the edit form.
-- Optional delete confirmation in Settings.
-- Import, export, and scan folders into `apps.json`.
-- Detect duplicate app entries and warn about missing local paths.
-- Search apps by name, group, kind, path, description, and tags.
-- Track pinned, recent, and most-used apps locally.
+## Main Features
+
+- Add, edit, delete, pin, and reorder launcher entries in the UI.
+- Load launcher cards from `apps.json` and additional JSON files in `Confg/`.
+- Import and export config backups.
+- Scan folders for `.exe`, `.lnk`, `.url`, `.bat`, and `.cmd` launcher targets.
+- Detect duplicate entries before saving.
+- Warn about missing local file and folder targets without blocking the rest of the launcher.
+- Search across name, description, tags, groups, kind, and path fields.
+- Track pinned items, recent launches, and usage stats in local browser storage.
 - Launch executable and command entries as administrator when enabled.
-- Customize colors, effects, gradients, layout, and fonts.
-- Advanced CSS, HTML, and JavaScript editors with line numbers, syntax colors, autosave, imports, and pop-out windows.
-- Tray support:
-  - Closing the window always hides to tray.
-  - `Minimize to tray` hides immediately and resets when restored.
-  - Tray menu can reopen or quit the app.
-- App icon support from `Confg/AppIcon.png` or `Confg/AppIcon.ico`.
+- Use custom icon files or fall back to generated initials and Windows system icons.
+- Support tray behavior, close-to-tray behavior, and launch-on-startup toggles.
+- Support UI customization including colors, gradients, effects, layout, and imported fonts.
+- Provide advanced CSS, HTML, and JavaScript editors with autosave and pop-out windows.
 
-## Advanced Modding
+## Source Setup
 
-See `ADV_MODDING_TUTORIAL.md` for examples.
-See `ADV_EDITOR_CLASSES.md` for selectors, body state classes, theme variables, and editor token classes.
+Requirements:
 
-## Clean Release Notes
+- Node.js `18+`
 
-For public releases, keep `Confg/apps.json` empty or machine-neutral. Do not commit `node_modules`, `dist`, or personal app paths.
+Install and run:
+
+```bash
+npm install
+npm start
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+## Portable Build
+
+Create a portable Windows build:
+
+```bash
+npm run build:portable
+```
+
+Build output:
+
+```text
+dist/AppLauncher-win32-x64
+```
+
+The portable build writes a `.portable-profile` marker into the output folder. When that marker exists in a packaged build, the app redirects its Electron `userData` path into a local `UserData` folder beside the executable.
+
+## Configuration
+
+Launcher config files live in:
+
+- `Confg/apps.json`
+- any additional `.json` files inside `Confg/`
+
+The launcher bootstraps this folder automatically if required. The clean example config lives in:
+
+- `Confg/apps.sample.json`
+
+Detailed config format documentation is in:
+
+- `Confg/README.md`
+
+Public or GitHub-ready copies should keep `Confg/apps.json` empty or machine-neutral.
+
+## Launcher Entry Fields
+
+Common supported fields include:
+
+- `name`
+- `kind`
+- `target`
+- `description`
+- `group`
+- `tags`
+- `icon`
+- `iconPath`
+- `accent`
+- `runAsAdmin`
+
+Command entries additionally support:
+
+- `command`
+- `args`
+- `cwd`
+- `keepOpen`
+- `consoleWindow`
+
+Relative `file`, `folder`, and `command.cwd` values are resolved from the JSON file’s folder under `Confg/`.
+
+## Customization And Advanced Editing
+
+The launcher stores its UI preferences and advanced editor data in browser storage rather than in repository config files. That includes:
+
+- theme colors
+- card layout
+- tray-related toggles
+- imported font selection
+- custom effect CSS
+- embedded HTML
+- embedded JavaScript
+- launch stats and pinned state
+
+Advanced editor references:
+
+- `ADV_MODDING_TUTORIAL.md`
+- `ADV_EDITOR_CLASSES.md`
+
+These advanced tools are intended for trusted local customization. They are useful for theme work, layout changes, animated effects, and embedded interface extensions.
+
+## Temp Debug Logging
+
+This source copy includes a temp-debug logger in `main.js` for tracking actions that may create temporary directories or runtime artifacts.
+
+Log file:
+
+- `Confg/temp-debug.log`
+
+What it records:
+
+- app startup and shutdown
+- window creation
+- system icon extraction calls
+- native file and save dialogs
+- launched child processes
+
+This log is intended for debugging local runtime behavior. It should not be committed with session data. The Bak copy currently keeps the logging feature in code, but the actual log file itself should remain absent from source control.
+
+## Test Temp Folder Cleanup
+
+The test suite creates temporary launcher roots during execution. It has been updated to:
+
+- create test temp folders under a single parent temp directory
+- clean those folders after the test run
+- remove the shared parent temp directory afterward
+
+This prevents `%TEMP%` from filling up with large numbers of `home-launcher-*` folders during repeated test runs.
+
+## GitHub-Clean Expectations
+
+For `AppLauncher Bak`, keep these out of commits:
+
+- personal app entries in `Confg/apps.json`
+- personal machine paths
+- generated debug logs
+- `node_modules/`
+- `dist/`
+- installer output folders
+- Electron runtime state such as `UserData`, caches, local storage, or preferences dumps
+
+The existing `.gitignore` already covers the major generated folders and log patterns, but review commits before pushing if you add new tooling or outputs.
+
+## Release Workflow
+
+Recommended workflow:
+
+1. Build and test ideas in `Home` or `Applauncher Expo`.
+2. Move accepted source changes into `AppLauncher Bak`.
+3. Reset `Confg/apps.json` to a clean state.
+4. Remove temporary logs and generated outputs.
+5. Run `npm test`.
+6. Publish or push the Bak copy.
+
+## Notes
+
+- `AppLauncher Bak` is the GitHub-ready source target.
+- `Applauncher Expo` is intentionally experimental and should not be treated as the clean release source by default.
+- `Home` may contain local debugging additions that are useful during development but should be reviewed before promotion into Bak.

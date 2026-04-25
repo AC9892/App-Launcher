@@ -10,6 +10,8 @@ Keep JavaScript small and only run code you trust.
 
 Advanced editors include autosave, imports, pop-out windows, line numbers, word wrap, and syntax highlighting for CSS, HTML, and JavaScript.
 
+Expo builds may include experimental selectors, hooks, or examples before they are accepted into the stable App Launcher release. Treat anything tested in `Applauncher Expo` as unstable until it is copied into `AppLauncher Bak`.
+
 ## Class And Variable Reference
 
 See `ADV_EDITOR_CLASSES.md` for the full selector reference, body state classes, theme variables, editor token classes, modal classes, and modding safety notes.

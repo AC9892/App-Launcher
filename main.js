@@ -17,6 +17,8 @@ const {
 } = require("./src/launcher-config");
 
 const APP_ROOT = path.resolve(__dirname);
+const CLEAN_DEV_USER_DATA_DIR_NAME = "AppLauncherSettings";
+const RELEASE_USER_DATA_DIR_NAME = "App Launcher Release";
 let mainWindow = null;
 let tray = null;
 let minimizeToTray = false;
@@ -24,6 +26,68 @@ let closeToTray = true;
 let portableProfileEnabled = false;
 const editorWindows = new Map();
 const systemIconCache = new Map();
+const TEMP_DEBUG_LOG_PATH = path.join(APP_ROOT, "Confg", "temp-debug.log");
+
+function ensureDebugLogDir() {
+  fs.mkdirSync(path.dirname(TEMP_DEBUG_LOG_PATH), { recursive: true });
+}
+
+function countTempDirectories() {
+  try {
+    return fs.readdirSync(app.getPath("temp"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).length;
+  } catch {
+    return -1;
+  }
+}
+
+function logTempDebug(event, details = {}) {
+  try {
+    ensureDebugLogDir();
+    const payload = {
+      time: new Date().toISOString(),
+      pid: process.pid,
+      event,
+      tempPath: app?.isReady?.() ? app.getPath("temp") : process.env.TEMP || process.env.TMP || "",
+      tempDirCount: app?.isReady?.() ? countTempDirectories() : -1,
+      details
+    };
+    fs.appendFileSync(TEMP_DEBUG_LOG_PATH, `${JSON.stringify(payload)}\n`, "utf8");
+  } catch {
+    // Logging must never interfere with launcher behavior.
+  }
+}
+
+function withTempDebug(event, details, work) {
+  const beforeCount = countTempDirectories();
+  const startedAt = Date.now();
+  logTempDebug(`${event}:start`, { ...details, beforeCount });
+
+  return Promise.resolve()
+    .then(work)
+    .then((value) => {
+      const afterCount = countTempDirectories();
+      logTempDebug(`${event}:finish`, {
+        ...details,
+        beforeCount,
+        afterCount,
+        delta: beforeCount >= 0 && afterCount >= 0 ? afterCount - beforeCount : null,
+        durationMs: Date.now() - startedAt
+      });
+      return value;
+    })
+    .catch((error) => {
+      const afterCount = countTempDirectories();
+      logTempDebug(`${event}:error`, {
+        ...details,
+        beforeCount,
+        afterCount,
+        delta: beforeCount >= 0 && afterCount >= 0 ? afterCount - beforeCount : null,
+        durationMs: Date.now() - startedAt,
+        error: error?.message || String(error)
+      });
+      throw error;
+    });
+}
 
 function configurePortableUserData() {
   const exeDir = path.dirname(process.execPath);
@@ -35,6 +99,16 @@ function configurePortableUserData() {
   }
 }
 
+function configureReleaseUserData() {
+  if (!app.isPackaged) {
+    app.setPath("userData", path.join(APP_ROOT, CLEAN_DEV_USER_DATA_DIR_NAME));
+    return;
+  }
+
+  app.setPath("userData", path.join(app.getPath("appData"), RELEASE_USER_DATA_DIR_NAME));
+}
+
+configureReleaseUserData();
 configurePortableUserData();
 
 function getLauncherRoot() {
@@ -85,6 +159,11 @@ const WINDOW_OPTIONS = {
 };
 
 function createWindow() {
+  logTempDebug("window:create", {
+    packaged: app.isPackaged,
+    portableProfileEnabled,
+    launcherRoot: getLauncherRoot()
+  });
   const window = new BrowserWindow(WINDOW_OPTIONS);
   mainWindow = window;
   window.loadFile(path.join(APP_ROOT, "index.html"));
@@ -493,9 +572,20 @@ async function loadSystemIcons(entries) {
       let systemIconUrl = systemIconCache.get(iconTarget);
 
       if (!systemIconUrl) {
-        const icon = await app.getFileIcon(iconTarget, { size: "normal" });
+        const icon = await withTempDebug("icon:getFileIcon", {
+          iconTarget,
+          kind: entry.kind,
+          sourceFile: entry.sourceFile,
+          sourceIndex: entry.sourceIndex
+        }, () => app.getFileIcon(iconTarget, { size: "normal" }));
 
         if (icon.isEmpty()) {
+          logTempDebug("icon:empty", {
+            iconTarget,
+            kind: entry.kind,
+            sourceFile: entry.sourceFile,
+            sourceIndex: entry.sourceIndex
+          });
           continue;
         }
 
@@ -526,7 +616,10 @@ async function chooseLauncherTarget(payload) {
   }
 
   const openDirectory = kind === "folder" || kind === "cwd";
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:choose-target", {
+    kind,
+    openDirectory
+  }, () => dialog.showOpenDialog(getWindow(), {
     title: kind === "icon" ? "Choose Icon Image" : openDirectory ? "Choose Folder" : "Choose File",
     properties: openDirectory ? ["openDirectory"] : ["openFile"],
     filters:
@@ -536,7 +629,7 @@ async function chooseLauncherTarget(payload) {
             { name: "All Files", extensions: ["*"] }
           ]
         : undefined
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -552,14 +645,16 @@ async function chooseLauncherTarget(payload) {
 
 async function exportConfigBackup() {
   const defaultName = `home-launcher-config-${new Date().toISOString().slice(0, 10)}.json`;
-  const result = await dialog.showSaveDialog(getWindow(), {
+  const result = await withTempDebug("dialog:export-config", {
+    defaultName
+  }, () => dialog.showSaveDialog(getWindow(), {
     title: "Export Launcher Config",
     defaultPath: defaultName,
     filters: [
       { name: "JSON Files", extensions: ["json"] },
       { name: "All Files", extensions: ["*"] }
     ]
-  });
+  }));
 
   if (result.canceled || !result.filePath) {
     return null;
@@ -569,14 +664,14 @@ async function exportConfigBackup() {
 }
 
 async function importConfigBackup() {
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:import-config", {}, () => dialog.showOpenDialog(getWindow(), {
     title: "Import Launcher Config",
     properties: ["openFile"],
     filters: [
       { name: "JSON Files", extensions: ["json"] },
       { name: "All Files", extensions: ["*"] }
     ]
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -586,10 +681,10 @@ async function importConfigBackup() {
 }
 
 async function scanLauncherFolderFromDialog() {
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:scan-folder", {}, () => dialog.showOpenDialog(getWindow(), {
     title: "Scan Folder For Apps",
     properties: ["openDirectory"]
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -599,14 +694,14 @@ async function scanLauncherFolderFromDialog() {
 }
 
 async function chooseFontFile() {
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:choose-font", {}, () => dialog.showOpenDialog(getWindow(), {
     title: "Choose Font File",
     properties: ["openFile"],
     filters: [
       { name: "Font Files", extensions: ["ttf", "otf", "woff", "woff2"] },
       { name: "All Files", extensions: ["*"] }
     ]
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -622,14 +717,14 @@ async function chooseFontFile() {
 }
 
 async function chooseEffectFile() {
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:choose-effect", {}, () => dialog.showOpenDialog(getWindow(), {
     title: "Import Custom Effect",
     properties: ["openFile"],
     filters: [
       { name: "Effect CSS", extensions: ["css", "txt"] },
       { name: "All Files", extensions: ["*"] }
     ]
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -648,7 +743,9 @@ async function chooseEffectFile() {
 async function chooseCustomCodeFile(kind) {
   const normalizedKind = String(kind ?? "").trim().toLowerCase();
   const isJs = normalizedKind === "js";
-  const result = await dialog.showOpenDialog(getWindow(), {
+  const result = await withTempDebug("dialog:choose-custom-code", {
+    kind: normalizedKind || "html"
+  }, () => dialog.showOpenDialog(getWindow(), {
     title: isJs ? "Import Custom JavaScript" : "Import Custom HTML",
     properties: ["openFile"],
     filters: isJs
@@ -660,7 +757,7 @@ async function chooseCustomCodeFile(kind) {
           { name: "HTML Files", extensions: ["html", "htm", "txt"] },
           { name: "All Files", extensions: ["*"] }
         ]
-  });
+  }));
 
   if (result.canceled || result.filePaths.length === 0) {
     return null;
@@ -693,7 +790,9 @@ async function getTrayIcon() {
   }
 
   try {
-    const image = await app.getFileIcon(process.execPath, { size: "normal" });
+    const image = await withTempDebug("icon:getTrayIcon", {
+      target: process.execPath
+    }, () => app.getFileIcon(process.execPath, { size: "normal" }));
 
     if (!image.isEmpty()) {
       return image;
@@ -781,6 +880,13 @@ function quotePowerShellString(value) {
 
 function launchDetachedWithPowerShell(command, args, cwd, consoleWindow, runAsAdmin = false) {
   const windowStyle = consoleWindow === "minimized" ? "Minimized" : "Hidden";
+  logTempDebug("spawn:powershell-start-process", {
+    command,
+    args,
+    cwd,
+    consoleWindow,
+    runAsAdmin
+  });
   const script = [
     "Start-Process",
     "-FilePath",
@@ -809,6 +915,14 @@ function launchDetachedWithPowerShell(command, args, cwd, consoleWindow, runAsAd
     }
   );
 
+  logTempDebug("spawn:powershell-start-process:spawned", {
+    pid: child.pid,
+    command,
+    args,
+    cwd,
+    consoleWindow,
+    runAsAdmin
+  });
   child.unref();
 }
 
@@ -851,6 +965,15 @@ function launchCommand(payload) {
   }
 
   if (!keepOpen) {
+    logTempDebug("spawn:direct", {
+      command,
+      args,
+      cwd,
+      keepOpen,
+      consoleWindow,
+      runAsAdmin,
+      shell: commandNeedsShell(command)
+    });
     const child = spawn(command, args, {
       cwd,
       detached: true,
@@ -859,6 +982,15 @@ function launchCommand(payload) {
       windowsHide: consoleWindow === "hidden"
     });
 
+    logTempDebug("spawn:direct:spawned", {
+      pid: child.pid,
+      command,
+      args,
+      cwd,
+      keepOpen,
+      consoleWindow,
+      runAsAdmin
+    });
     child.unref();
 
     return {
@@ -895,6 +1027,15 @@ function launchCommand(payload) {
     }
   );
 
+  logTempDebug("spawn:cmd-wrapper:spawned", {
+    pid: child.pid,
+    command,
+    args,
+    cwd,
+    keepOpen,
+    consoleWindow,
+    runAsAdmin
+  });
   child.unref();
 
   return {
@@ -939,14 +1080,6 @@ function registerIpc() {
 
   ipcMain.handle("launcher:load-icons", (_, payload) =>
     safeHandle(async () => loadSystemIcons(payload?.entries))
-  );
-
-  ipcMain.handle("app:get-runtime-info", () =>
-    safeHandle(async () => ({
-      packaged: app.isPackaged,
-      portable: portableProfileEnabled,
-      version: app.getVersion()
-    }))
   );
 
   ipcMain.handle("launcher:open-config", () =>
@@ -1085,6 +1218,13 @@ if (gotSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
+    logTempDebug("app:ready", {
+      packaged: app.isPackaged,
+      portableProfileEnabled,
+      launcherRoot: getLauncherRoot(),
+      userData: app.getPath("userData"),
+      tempPath: app.getPath("temp")
+    });
     Menu.setApplicationMenu(null);
     registerIpc();
     createWindow();
@@ -1102,5 +1242,11 @@ if (gotSingleInstanceLock) {
     if (process.platform !== "darwin" && (!minimizeToTray || !closeToTray)) {
       app.quit();
     }
+  });
+
+  app.on("before-quit", () => {
+    logTempDebug("app:before-quit", {
+      windowCount: BrowserWindow.getAllWindows().length
+    });
   });
 }

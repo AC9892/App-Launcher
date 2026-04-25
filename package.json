@@ -3,25 +3,22 @@
   "version": "1.3.1",
   "private": true,
   "description": "Standalone launcher app for external tools and apps",
-  "author": "App Launcher Contributors",
   "main": "./main.js",
   "scripts": {
-    "build:installer": "electron-builder --win nsis",
     "build:portable": "node ./scripts/build-portable.js",
+    "build:installer": "electron-builder --win nsis",
     "start": "electron .",
     "test": "node ./test/launcher.test.js"
   },
   "build": {
-    "appId": "com.applauncher.app",
+    "appId": "com.antc.home-launcher",
     "productName": "App Launcher",
-    "asar": false,
     "directories": {
       "output": "dist-installer"
     },
     "files": [
       "Confg/**/*",
-      "ADV_EDITOR_CLASSES.md",
-      "ADV_MODDING_TUTORIAL.md",
+      "!Confg/temp-debug.log",
       "index.html",
       "main.js",
       "package.json",
@@ -34,13 +31,12 @@
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "AppLauncher-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
       "shortcutName": "App Launcher"
     }
   },
@@ -49,6 +45,6 @@
   },
   "devDependencies": {
     "electron": "^41.1.1",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.0.12"
   }
 }

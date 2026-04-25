@@ -37,6 +37,5 @@ contextBridge.exposeInMainWorld("homeLauncher", {
     return () => ipcRenderer.removeListener("app:restored-from-tray", listener);
   },
   setWindowOrientation: (orientation) => invokeHandled("window:set-orientation", orientation),
-  getRuntimeInfo: () => invokeHandled("app:get-runtime-info", {}),
   restart: () => invokeHandled("app:restart", {})
 });

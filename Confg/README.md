@@ -8,6 +8,8 @@ The original manual method still works: add one or more `.json` files to this fo
 
 Use `apps.sample.json` for a clean example that avoids local machine-specific paths. The sample file is ignored by the live launcher.
 
+`Applauncher Expo` may test experimental config fields before they are part of the stable release. Keep public/release configs compatible with `AppLauncher Bak`.
+
 Each file can be either:
 
 ```json
