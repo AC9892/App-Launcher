@@ -53,7 +53,7 @@ Typical use cases:
 
 Requirements:
 
-- Node.js `18+`
+- [Node.js](https://nodejs.org/en/download) `18+`
 
 Install and run:
 
