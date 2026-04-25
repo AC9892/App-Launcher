@@ -7,7 +7,7 @@ App Launcher is a Windows-focused Electron launcher for desktop apps, files, fol
 ## Repository Layout
 
 - `Home`
-  Raw personal working copy. This is where active local debugging and day-to-day changes may happen first.
+  Raw personal working copy. This is where active local debugging and day-to-day changes may happen first. - this is what i use
 - `AppLauncher Bak`
   Clean source copy intended for release prep and GitHub. Keep this folder free of personal app entries, personal machine paths, generated runtime state, `node_modules`, and build output.
 - `Applauncher Expo`
@@ -174,32 +174,6 @@ The test suite creates temporary launcher roots during execution. It has been up
 
 This prevents `%TEMP%` from filling up with large numbers of `home-launcher-*` folders during repeated test runs.
 
-## GitHub-Clean Expectations
-
-For `AppLauncher Bak`, keep these out of commits:
-
-- personal app entries in `Confg/apps.json`
-- personal machine paths
-- generated debug logs
-- `node_modules/`
-- `dist/`
-- installer output folders
-- Electron runtime state such as `UserData`, caches, local storage, or preferences dumps
-
-The existing `.gitignore` already covers the major generated folders and log patterns, but review commits before pushing if you add new tooling or outputs.
-
-## Release Workflow
-
-Recommended workflow:
-
-1. Build and test ideas in `Home` or `Applauncher Expo`.
-2. Move accepted source changes into `AppLauncher Bak`.
-3. Reset `Confg/apps.json` to a clean state.
-4. Remove temporary logs and generated outputs.
-5. Run `npm test`.
-6. Publish or push the Bak copy.
-
-## Notes
 
 - `AppLauncher Bak` is the GitHub-ready source target.
 - `Applauncher Expo` is intentionally experimental and should not be treated as the clean release source by default.
